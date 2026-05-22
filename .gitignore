@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.DS_Store
+_tmp_index_test.txt

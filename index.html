@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D CRT Display | Codegrid</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="interactive-grid" aria-hidden="true"></div>
+
+    <button class="language-switch" type="button" aria-label="Language switch">
+      <span class="language-switch-segment language-switch-segment-active">
+        <span class="language-switch-glyph">A</span>
+        <span class="language-switch-code">EN</span>
+      </span>
+      <span class="language-switch-segment language-switch-segment-inactive">
+        <span class="language-switch-glyph">あ</span>
+        <span class="language-switch-code">JP</span>
+      </span>
+    </button>
+
+    <div class="top-status" aria-label="System online status">
+      <span class="top-status-text">SYS.ONLINE</span>
+      <span class="top-status-dots" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </div>
+
+    <aside class="monitor-panel" aria-label="System monitor">
+      <div class="monitor-panel-title">SYS.MONITOR</div>
+
+      <div class="monitor-panel-row" style="--monitor-fill: 23%">
+        <div class="monitor-panel-meta">
+          <span class="monitor-panel-label">CPU</span>
+          <span class="monitor-panel-value">23%</span>
+        </div>
+        <div class="monitor-panel-bar"><span></span></div>
+      </div>
+
+      <div class="monitor-panel-row" style="--monitor-fill: 41%">
+        <div class="monitor-panel-meta">
+          <span class="monitor-panel-label">MEM</span>
+          <span class="monitor-panel-value">41%</span>
+        </div>
+        <div class="monitor-panel-bar"><span></span></div>
+      </div>
+
+      <div class="monitor-panel-row" style="--monitor-fill: 12%">
+        <div class="monitor-panel-meta">
+          <span class="monitor-panel-label">NET</span>
+          <span class="monitor-panel-value">12ms</span>
+        </div>
+        <div class="monitor-panel-bar"><span></span></div>
+      </div>
+
+      <div class="monitor-panel-row" style="--monitor-fill: 67%">
+        <div class="monitor-panel-meta">
+          <span class="monitor-panel-label">DSK</span>
+          <span class="monitor-panel-value">67%</span>
+        </div>
+        <div class="monitor-panel-bar"><span></span></div>
+      </div>
+    </aside>
+
+    <div class="hud-lines hud-lines-left" aria-hidden="true">
+      <span class="hud-line hud-line-long"></span>
+      <span class="hud-line hud-line-mid"></span>
+      <span class="hud-line hud-line-short"></span>
+      <span class="hud-line-accent hud-line-accent-left"></span>
+    </div>
+
+    <div class="hud-lines hud-lines-right" aria-hidden="true">
+      <span class="hud-line hud-line-vertical"></span>
+      <span class="hud-line hud-line-branch-top"></span>
+      <span class="hud-line hud-line-branch-mid"></span>
+      <span class="hud-line hud-line-branch-low"></span>
+      <span class="hud-line-accent hud-line-accent-right"></span>
+    </div>
+
+    <div class="kp-menu-container" aria-hidden="false">
+      <div class="kp-menu">
+        <div class="kp-menu-top-content" aria-label="Project feeds">
+              <div class="kp-menu-item">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="0">Projects</a>
+                </div>
+                <span>CRT 001</span>
+              </div>
+
+              <div class="kp-menu-item">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="1">Skills</a>
+                </div>
+                <span>CRT 002</span>
+              </div>
+
+              <div class="kp-menu-item">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="2">Resume</a>
+                </div>
+                <span>CRT 003</span>
+              </div>
+
+              <div class="kp-menu-item">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="3">About</a>
+                </div>
+                <span>CRT 004</span>
+              </div>
+
+              <div class="kp-menu-item is-active">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="4">Terminal</a>
+                </div>
+                <span>CRT 005</span>
+              </div>
+
+              <div class="kp-menu-item">
+                <div class="kp-menu-item-link">
+                  <div class="kp-bg-hover"></div>
+                  <a href="#" data-project-nav="5">Contact</a>
+                </div>
+                <span>CRT 006</span>
+              </div>
+            </div>
+
+        </div>
+
+            ×
+    </div>
+
+    <div class="status-panel status-panel-left" aria-label="System status">
+      <span class="status-panel-icon">▸</span>
+      <span class="status-panel-text">READY</span>
+      <span class="status-panel-accent">PID:4827</span>
+    </div>
+
+    <div class="status-panel status-panel-right" aria-label="Editor status">
+      <span class="status-panel-text">UTF-8</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-text">LF</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-text">TSX</span>
+      <span class="status-panel-text">Ln 1, Col 1</span>
+      <time class="status-panel-accent status-panel-clock" datetime="">--:--:--</time>
+    </div>
+
+    <section class="hero"></section>
+
+    <script type="module" src="/script.js"></script>
+  </body>
+</html>
