@@ -58,21 +58,30 @@ export function createTerminalScreen(projects) {
 
   const current = () => state.hover || state.selected;
   const write = (text, style = "normal") => state.log.push({ text, style });
+  const writeLines = (lines, style = "dim") => lines.forEach((line) => write(line, style));
+
+  const profile = {
+    github: "https://github.com/mounikb",
+    email: "mounik.bm@gmail.com",
+    linkedin: "https://www.linkedin.com/in/your-handle",
+    sportsnu: "https://sports-nu-web.vercel.app",
+    sportsnuRepo: "https://github.com/mounikb/SportsNU",
+  };
+
+  function openExternal(url, label) {
+    if (typeof window === "undefined") {
+      write(`${label}: ${url}`, "dim");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+    write(`opening ${label}...`, "dim");
+  }
+
   function startExperience() {
     if (state.experienceStarted) return;
     state.experienceStarted = true;
     write("initializing crt display...", "dim");
     if (api.onStart) api.onStart();
-  }
-
-  function openProject(slug) {
-    const project = entries.find((entry) => entry.slug === slug);
-    if (!project) {
-      write(`${slug}: project not found`);
-      return;
-    }
-    state.selected = project;
-    write(`routing ${project.label.toLowerCase()} into the crt...`, "dim");
   }
 
   const api = {
@@ -126,30 +135,81 @@ export function createTerminalScreen(projects) {
         state.historyIndex = -1;
         state.scroll = 0;
 
-        const [command, ...args] = raw.toLowerCase().split(/\s+/);
+        const parts = raw.toLowerCase().split(/\s+/);
+        const [command, ...args] = parts;
         if (!raw) {}
         else if (command === "start") {
           startExperience();
         } else if (command === "help") {
-          [
-            "help      list commands",
-            "start     force zoom-out transition",
-            "projects  show project feeds",
-            "open X    open a project feed",
-            "home      return to intro",
-            "about     describe this monitor",
-            "clear     clear terminal log",
-          ].forEach((line) => write(line, "dim"));
+          writeLines([
+            "help                list commands",
+            "about               print profile summary",
+            "experience          show experience log",
+            "projects            show featured project",
+            "github              open github profile",
+            "contact             show contact channels",
+            "skills              list skill groups",
+            "whoami              identify current user",
+            "boot                replay mlinux post",
+            "clear               clear terminal log",
+            "sudo hire mounik    open contact channel",
+          ]);
         } else if (command === "projects" || command === "ls") {
-          entries.forEach((entry) => write(entry.slug, "dim"));
-        } else if (command === "open") {
-          openProject(args[0] || "");
+          writeLines([
+            "SPORTSNU",
+            "full-stack live sports and esports tracking platform",
+            "features: auth, fixture workers, cached dashboards",
+            `live: ${profile.sportsnu}`,
+            `repo: ${profile.sportsnuRepo}`,
+          ]);
         } else if (command === "home") {
           state.selected = null;
           write("returning to home screen...", "dim");
         } else if (command === "about") {
-          write("3D CRT display with an amber terminal layer.", "dim");
-          write("Inspired by edh.dev.", "dim");
+          writeLines([
+            "Mounik B M",
+            "Computer Science graduate building real products,",
+            "AI-assisted systems, teaching programs, and cloud-ready",
+            "full-stack applications.",
+          ]);
+        } else if (command === "experience" || command === "log") {
+          writeLines([
+            "01 frontend components across production codebase",
+            "02 rag pipeline work at ai accessibility startup",
+            "03 instructed 200+ students in web development",
+            "04 course coordination: c++ / full stack / ml",
+            "05 two shopify + razorpay ecommerce deployments",
+            "06 ieee access research under review",
+          ]);
+        } else if (command === "github") {
+          openExternal(profile.github, "github");
+        } else if (command === "contact") {
+          writeLines([
+            `email:    ${profile.email}`,
+            `github:   ${profile.github}`,
+            `linkedin: ${profile.linkedin}`,
+          ]);
+        } else if (command === "skills") {
+          writeLines([
+            "frontend: react, ui systems, motion",
+            "backend: node, auth, workers, postgres",
+            "cloud: vercel, render, monitoring",
+            "research: optimization, ml surrogates",
+          ]);
+        } else if (command === "whoami") {
+          write("mounik: software engineer, product builder, cs graduate", "dim");
+        } else if (command === "boot") {
+          writeLines([
+            "MLINUX BIOS v2.1.4",
+            "COPYRIGHT (C) 2024 MLINUX SYSTEMS",
+            "CPU       MLINX 68000 @ 7.16 MHz       [OK]",
+            "MEM       512K RAM TEST                [OK]",
+            "VID       NTSC 525-LINE CRT            [OK]",
+            "SYSTEM READY",
+          ]);
+        } else if (command === "sudo" && args.join(" ") === "hire mounik") {
+          write("permission granted: opening contact channel...", "dim");
+          if (typeof window !== "undefined") window.location.href = `mailto:${profile.email}`;
         } else if (command === "clear") {
           state.log = [];
         } else if (command) {
