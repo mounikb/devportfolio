@@ -5,65 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D CRT Display | Codegrid</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/experience.css" />
   </head>
   <body>
-    <div class="interactive-grid" aria-hidden="true"></div>
-
-    <button class="language-switch" type="button" aria-label="Language switch">
-      <span class="language-switch-segment language-switch-segment-active">
-        <span class="language-switch-glyph">A</span>
-        <span class="language-switch-code">EN</span>
-      </span>
-      <span class="language-switch-segment language-switch-segment-inactive">
-        <span class="language-switch-glyph">あ</span>
-        <span class="language-switch-code">JP</span>
-      </span>
-    </button>
-
-    <div class="top-status" aria-label="System online status">
-      <span class="top-status-text">SYS.ONLINE</span>
-      <span class="top-status-dots" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-      </span>
+    <div class="boot-screen" id="boot-screen" role="status" aria-label="System boot sequence">
+      <div class="boot-screen-frame">
+        <pre class="boot-screen-output"></pre>
+      </div>
     </div>
 
-    <aside class="monitor-panel" aria-label="System monitor">
-      <div class="monitor-panel-title">SYS.MONITOR</div>
+    <div class="interactive-grid" aria-hidden="true"></div>
+    <div class="ambient-scanline" aria-hidden="true"></div>
 
-      <div class="monitor-panel-row" style="--monitor-fill: 23%">
-        <div class="monitor-panel-meta">
-          <span class="monitor-panel-label">CPU</span>
-          <span class="monitor-panel-value">23%</span>
-        </div>
-        <div class="monitor-panel-bar"><span></span></div>
+    <div class="top-status" aria-label="System online status">
+      <div class="top-status-main">
+        <span class="top-status-text">SYS.ONLINE</span>
+        <span class="top-status-dots" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
       </div>
+      <div class="top-status-meta" aria-hidden="true">
+        <span>NODE: <span class="top-status-meta-accent">ACTIVE</span></span>
+        <span>STATUS: <span class="top-status-meta-accent">STABLE</span></span>
+      </div>
+    </div>
 
-      <div class="monitor-panel-row" style="--monitor-fill: 41%">
-        <div class="monitor-panel-meta">
-          <span class="monitor-panel-label">MEM</span>
-          <span class="monitor-panel-value">41%</span>
-        </div>
-        <div class="monitor-panel-bar"><span></span></div>
-      </div>
-
-      <div class="monitor-panel-row" style="--monitor-fill: 12%">
-        <div class="monitor-panel-meta">
-          <span class="monitor-panel-label">NET</span>
-          <span class="monitor-panel-value">12ms</span>
-        </div>
-        <div class="monitor-panel-bar"><span></span></div>
-      </div>
-
-      <div class="monitor-panel-row" style="--monitor-fill: 67%">
-        <div class="monitor-panel-meta">
-          <span class="monitor-panel-label">DSK</span>
-          <span class="monitor-panel-value">67%</span>
-        </div>
-        <div class="monitor-panel-bar"><span></span></div>
-      </div>
-    </aside>
+    <nav class="social-icons" aria-label="Social links">
+      <a class="social-icon" href="https://github.com/mounikb" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+        <span class="social-icon-glyph">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.7.08-.7 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.74 1.27 3.41.97.1-.76.4-1.27.74-1.56-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.3-.51-1.47.11-3.07 0 0 .97-.31 3.17 1.19a11 11 0 0 1 5.78 0c2.2-1.5 3.17-1.19 3.17-1.19.62 1.6.23 2.77.11 3.07.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.4-5.25 5.69.41.36.78 1.05.78 2.12v3.15c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+          </svg>
+          <span class="social-icon-scanline" aria-hidden="true"></span>
+        </span>
+        <span class="social-icon-label" aria-hidden="true">GH</span>
+      </a>
+      <span class="social-icon-sep" aria-hidden="true"></span>
+      <a class="social-icon" href="https://www.linkedin.com/in/your-handle" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+        <span class="social-icon-glyph">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0Z"/>
+          </svg>
+          <span class="social-icon-scanline" aria-hidden="true"></span>
+        </span>
+        <span class="social-icon-label" aria-hidden="true">LI</span>
+      </a>
+      <span class="social-icon-sep" aria-hidden="true"></span>
+      <a class="social-icon" href="mailto:mounik.bm@gmail.com" aria-label="Email">
+        <span class="social-icon-glyph">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm9 8.13L3.62 7H20.4L12 13.13Zm0 2.37L4 9.5V17h16V9.5l-8 6Z"/>
+          </svg>
+          <span class="social-icon-scanline" aria-hidden="true"></span>
+        </span>
+        <span class="social-icon-label" aria-hidden="true">MAIL</span>
+      </a>
+    </nav>
 
     <div class="hud-lines hud-lines-left" aria-hidden="true">
       <span class="hud-line hud-line-long"></span>
@@ -72,21 +71,13 @@
       <span class="hud-line-accent hud-line-accent-left"></span>
     </div>
 
-    <div class="hud-lines hud-lines-right" aria-hidden="true">
-      <span class="hud-line hud-line-vertical"></span>
-      <span class="hud-line hud-line-branch-top"></span>
-      <span class="hud-line hud-line-branch-mid"></span>
-      <span class="hud-line hud-line-branch-low"></span>
-      <span class="hud-line-accent hud-line-accent-right"></span>
-    </div>
-
     <div class="kp-menu-container" aria-hidden="false">
       <div class="kp-menu">
         <div class="kp-menu-top-content" aria-label="Project feeds">
               <div class="kp-menu-item">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="0">Projects</a>
+                  <a href="#about" data-project-nav="3" data-spy="about">About</a>
                 </div>
                 <span>CRT 001</span>
               </div>
@@ -94,7 +85,7 @@
               <div class="kp-menu-item">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="1">Skills</a>
+                  <a href="#experience" data-project-nav="1" data-spy="experience">Experience</a>
                 </div>
                 <span>CRT 002</span>
               </div>
@@ -102,7 +93,7 @@
               <div class="kp-menu-item">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="2">Resume</a>
+                  <a href="#projects" data-project-nav="0" data-spy="projects">Projects</a>
                 </div>
                 <span>CRT 003</span>
               </div>
@@ -110,7 +101,7 @@
               <div class="kp-menu-item">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="3">About</a>
+                  <a href="#contact" data-project-nav="5" data-spy="contact">Contact</a>
                 </div>
                 <span>CRT 004</span>
               </div>
@@ -118,7 +109,7 @@
               <div class="kp-menu-item is-active">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="4">Terminal</a>
+                  <a href="#" data-project-nav="4" data-terminal-nav="true" data-spy="terminal">Terminal</a>
                 </div>
                 <span>CRT 005</span>
               </div>
@@ -126,7 +117,7 @@
               <div class="kp-menu-item">
                 <div class="kp-menu-item-link">
                   <div class="kp-bg-hover"></div>
-                  <a href="#" data-project-nav="5">Contact</a>
+                  <a href="/resume.pdf" target="_blank" rel="noopener noreferrer" data-project-nav="2">Resume</a>
                 </div>
                 <span>CRT 006</span>
               </div>
@@ -141,6 +132,16 @@
       <span class="status-panel-icon">▸</span>
       <span class="status-panel-text">READY</span>
       <span class="status-panel-accent">PID:4827</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-text">MEM</span>
+      <span class="status-panel-accent" data-mem-value>72%</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-text">UPLINK</span>
+      <span class="status-panel-accent">STABLE</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-pulse-dot" aria-hidden="true"></span>
+      <span class="status-panel-text">SYNC</span>
+      <span class="status-panel-accent">OK</span>
     </div>
 
     <div class="status-panel status-panel-right" aria-label="Editor status">
@@ -150,11 +151,132 @@
       <span class="status-panel-sep">•</span>
       <span class="status-panel-text">TSX</span>
       <span class="status-panel-text">Ln 1, Col 1</span>
+      <span class="status-panel-sep">•</span>
+      <span class="status-panel-accent">BUILD READY</span>
+      <span class="status-panel-cursor" aria-hidden="true"></span>
+      <span class="status-panel-sep">•</span>
       <time class="status-panel-accent status-panel-clock" datetime="">--:--:--</time>
     </div>
 
     <section class="hero"></section>
 
+    <section class="page-skills">
+      <section class="intro-copy" id="about">
+        <div class="intro-copy-container">
+          <h3>
+            A Computer Science graduate with a track record of building and
+            shipping real products, contributing to AI pipelines at an
+            international startup, coordinating technical education at scale, and
+            publishing research at the IEEE level &mdash; currently deepening
+            expertise in cloud infrastructure and DevOps to build production-grade
+            distributed systems.
+          </h3>
+        </div>
+
+        <div class="intro-copy-footer">
+          <div class="container">
+            <p class="type-mono">[ Log 02 ]</p>
+            <p class="type-mono">__ Experience Archive</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats minimal-section" id="experience">
+        <div class="minimal-shell">
+          <header class="minimal-header">
+            <p class="section-kicker type-mono">Experience</p>
+            <h2>Selected work and instruction.</h2>
+            <p>A compact record of shipped product work, teaching, freelance delivery, and research.</p>
+          </header>
+
+          <div class="stats-content minimal-list">
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">01</span>
+              <div>
+                <h3>Frontend components and UI modules built across a production codebase</h3>
+                <p>Web Development Intern · Edtech Platform · Remote · 6 months</p>
+              </div>
+            </article>
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">02</span>
+              <div>
+                <h3>RAG pipeline development at an early-stage AI accessibility startup</h3>
+                <p>Web Development Intern · PathAide, London · Remote · 3 months</p>
+              </div>
+            </article>
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">03</span>
+              <div>
+                <h3>Instructed 200+ students in web development across 57 feedback responses</h3>
+                <p>Web Dev Instructor &amp; Course Coordinator · 4.61/5 rating · 1 month</p>
+              </div>
+            </article>
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">04</span>
+              <div>
+                <h3>Leading course coordination for OOPs with C++, Full Stack, and ML</h3>
+                <p>Course Coordinator · Technical cohort · 3 months</p>
+              </div>
+            </article>
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">05</span>
+              <div>
+                <h3>Built and deployed two live e-commerce sites with Shopify Liquid and Razorpay</h3>
+                <p>Freelance Web Developer · Shopify Liquid · Razorpay · 2 projects</p>
+              </div>
+            </article>
+            <article class="stat-item minimal-row">
+              <span class="minimal-index type-mono">06</span>
+              <div>
+                <h3>Surrogate-assisted multi-objective evolutionary optimization research</h3>
+                <p>IEEE Access · Under review · NSGA-II with dual-output Random Forest surrogate</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="portfolio-section projects-section minimal-section" id="projects">
+        <div class="minimal-shell project-minimal">
+          <header class="minimal-header">
+            <p class="section-kicker type-mono">Project</p>
+            <h2>SportsNU</h2>
+            <p>A full-stack live sports and esports tracking platform with authentication, normalized fixtures, background workers, and cached dashboard state.</p>
+          </header>
+
+          <div class="project-summary">
+            <p>
+              Built and deployed a shared-data backend that normalizes multiple upstream providers into a single Postgres model, refreshes fixtures and results through workers, and serves users without per-user API calls.
+            </p>
+            <dl class="project-details">
+              <div><dt>Stack</dt><dd>Postgres, Vercel, Render</dd></div>
+              <div><dt>Product</dt><dd>Live dashboards across sports and tier-1 esports</dd></div>
+              <div><dt>Security</dt><dd>bcrypt, JWT/cookie auth, rate limiting, headers, RLS</dd></div>
+            </dl>
+            <div class="project-actions">
+              <a class="project-link" href="https://sports-nu-web.vercel.app" target="_blank" rel="noopener noreferrer">Live Site</a>
+              <a class="project-link project-link-secondary" href="https://github.com/mounikb/SportsNU" target="_blank" rel="noopener noreferrer">GitHub</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="portfolio-section contact-section minimal-section" id="contact">
+        <div class="minimal-shell contact-minimal">
+          <header class="minimal-header">
+            <p class="section-kicker type-mono">Contact</p>
+            <h2>Available for product and systems work.</h2>
+          </header>
+          <div class="contact-links">
+            <a href="mailto:mounik.bm@gmail.com"><span>Email</span><strong>mounik.bm@gmail.com</strong></a>
+            <a href="https://github.com/mounikb" target="_blank" rel="noopener noreferrer"><span>GitHub</span><strong>github.com/mounikb</strong></a>
+            <a href="https://www.linkedin.com/in/your-handle" target="_blank" rel="noopener noreferrer"><span>LinkedIn</span><strong>Open profile</strong></a>
+          </div>
+        </div>
+      </section>
+    </section>
+
     <script type="module" src="/script.js"></script>
+    <script type="module" src="/experience.js"></script>
   </body>
 </html>

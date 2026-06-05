@@ -3,11 +3,14 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { vertexShader, fragmentShader } from "./shaders.js";
 import { createTerminalScreen } from "./terminal-screen.js";
-
 document.addEventListener("DOMContentLoaded", () => {
+  const restoreZoomedHome = isBackForwardNavigation();
+
+  runBootSequence();
+
   const projectEntries = [
     { imageSrc: "/nav-previews/projects.webp", label: "Projects" },
-    { imageSrc: "/nav-previews/skills.jpg", label: "Skills" },
+    { imageSrc: "/nav-previews/skills.jpg", label: "Experience" },
     { imageSrc: "/nav-previews/resume.png", label: "Resume" },
     { imageSrc: "/nav-previews/about.jpg", label: "About" },
     { imageSrc: "/nav-previews/terminal.jpg", label: "Terminal" },
@@ -16,9 +19,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const hero = document.querySelector(".hero");
   const projectsList = document.querySelector(".projects");
   const kpMenuContainer = document.querySelector(".kp-menu-container");
-  const languageSwitch = document.querySelector(".language-switch");
-  const statusPanels = [...document.querySelectorAll(".top-status, .status-panel, .monitor-panel, .hud-lines")];
+  const statusPanels = [...document.querySelectorAll(".top-status, .status-panel, .hud-lines, .social-icons, .coord-marks")];
   const statusClock = document.querySelector(".status-panel-clock");
+  const memValueEl = document.querySelector("[data-mem-value]");
   const interactiveGrid = document.querySelector(".interactive-grid");
   const GRID_BLOCK_SIZE = 60;
   const GRID_HIGHLIGHT_DURATION = 300;
@@ -36,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
     y: undefined,
     radius: GRID_BLOCK_SIZE * 2,
   };
+  let activeScrollTween = null;
   const screenRefresh = {
     fps: 30,
     lastFrameAt: 0,
@@ -50,8 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
   terminalOverlay.style.position = "absolute";
   terminalOverlay.style.inset = "0";
   terminalOverlay.style.width = "100%";
-  terminalOverlay.style.height = "100%";
+  terminalOverlay.style.height = "100svh";
   terminalOverlay.style.zIndex = "3";
+  terminalOverlay.style.opacity = restoreZoomedHome ? "0" : "1";
+  terminalOverlay.style.pointerEvents = restoreZoomedHome ? "none" : "auto";
   hero.appendChild(terminalOverlay);
 
   window.addEventListener("keydown", terminalScreen.handleKeydown);
@@ -79,7 +85,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderer.domElement.style.inset = "0";
   renderer.domElement.style.zIndex = "1";
   renderer.domElement.style.display = "block";
-  renderer.domElement.style.opacity = "0";
+  renderer.domElement.style.height = "100svh";
+  renderer.domElement.style.opacity = restoreZoomedHome ? "1" : "0";
   hero.appendChild(renderer.domElement);
 
   // Handle WebGL context loss (common when the tab is backgrounded for a
@@ -186,20 +193,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const mouse = { x: 0, y: 0 };
   const lerpedMouse = { x: 0, y: 0 };
-  const zoom = { current: 0 };
+  const zoom = { current: restoreZoomedHome ? 1 : 0 };
   const timer = new THREE.Timer();
-  let started = false;
+  let started = restoreZoomedHome;
 
   if (projectsList) {
-    projectsList.style.opacity = "0";
-    projectsList.style.pointerEvents = "none";
+    projectsList.style.opacity = restoreZoomedHome ? "1" : "0";
+    projectsList.style.pointerEvents = restoreZoomedHome ? "auto" : "none";
     projectsList.style.transition = "opacity 220ms ease";
   }
 
-  setKpMenuVisibility(false);
-  setLanguageSwitchVisibility(false);
-  setStatusPanelsVisibility(false);
+  if (!restoreZoomedHome) {
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  setKpMenuVisibility(restoreZoomedHome);
+  setStatusPanelsVisibility(restoreZoomedHome);
   startStatusClock();
+  startMemTicker();
 
   if (interactiveGrid) {
     resetInteractiveGrid(interactiveGrid);
@@ -229,16 +240,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }, "<");
     tl.call(() => {
       setKpMenuVisibility(true, { immediate: false });
-      setLanguageSwitchVisibility(true, { immediate: false });
       setStatusPanelsVisibility(true, { immediate: false });
       shuffleAllKpMenuText();
+      scheduleAmbientFlicker();
     }, [], 0.68);
     tl.to(kpMenuContainer, {
-      opacity: 1,
-      duration: 0.45,
-      ease: "power2.out",
-    }, 0.68);
-    tl.to(languageSwitch, {
       opacity: 1,
       duration: 0.45,
       ease: "power2.out",
@@ -258,20 +264,243 @@ document.addEventListener("DOMContentLoaded", () => {
       current: 1,
       duration: 2.8,
       ease: "power2.inOut",
+      onComplete() {
+        document.documentElement.style.overflow = "";
+        heroReady = true;
+        refreshIntroTop();
+      },
     }, 0.4);
   };
+
+  // ── One-scroll hero → content transition ───────────────────────
+  // A single scroll input plays one fixed, fluid timeline instead of being
+  // tied to how far you drag (which felt sticky): the CRT collapses in place
+  // (the window stays put, so it shrinks toward its centre without drifting
+  // up), then the page glides to the intro and the headline pops in centred.
+  // Scrolling up at the top of the content plays the same motion in reverse.
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  const introSection = document.querySelector(".intro-copy");
+  const introHeading = introSection?.querySelector("h3");
+  const crtScreen = renderer.domElement;
+  const heroTransitionEnabled = !prefersReducedMotion && !!introSection;
+  const HEADING_HIDDEN = { opacity: 0, scale: 0.86, y: 44, transformOrigin: "50% 50%" };
+  let heroReady = restoreZoomedHome;
+  let heroPhase = "hero"; // "hero" | "content"
+  let transitionPlaying = false;
+  let heroTransition = null;
+  let cachedIntroTop = 0;
+  // While the CRT is scaling, stop redrawing/re-uploading the terminal texture
+  // every frame — that per-frame CPU+GPU work is what made the collapse stutter
+  // while the (cheap) text transform stayed smooth. It's shrinking away anyway.
+  let suspendScreenUpdates = false;
+
+  function refreshIntroTop() {
+    cachedIntroTop = introSection
+      ? Math.round(introSection.getBoundingClientRect().top + window.scrollY)
+      : window.innerHeight;
+  }
+
+  if (heroTransitionEnabled && introHeading) {
+    gsap.set(introHeading, HEADING_HIDDEN);
+  }
+
+  function scrollWindowTo(targetY, duration, ease) {
+    const proxy = { y: window.scrollY };
+    return gsap.to(proxy, {
+      y: targetY,
+      duration,
+      ease,
+      onUpdate() {
+        window.scrollTo(0, proxy.y);
+      },
+    });
+  }
+
+  function playForwardTransition(onDone) {
+    if (!heroTransitionEnabled || transitionPlaying || heroPhase === "content") {
+      onDone?.();
+      return;
+    }
+    transitionPlaying = true;
+    suspendScreenUpdates = true;
+    crtScreen.style.willChange = "transform";
+    refreshIntroTop();
+    const targetY = cachedIntroTop;
+    heroTransition?.kill();
+    heroTransition = gsap.timeline({
+      onComplete() {
+        transitionPlaying = false;
+        suspendScreenUpdates = false;
+        crtScreen.style.willChange = "";
+        heroPhase = "content";
+        window.scrollTo(0, targetY);
+        onDone?.();
+      },
+    });
+    // 1. Collapse the CRT in place — window stays at the top, so no upward drift.
+    heroTransition.to(crtScreen, {
+      scale: 0,
+      duration: 0.5,
+      ease: "power2.in",
+      transformOrigin: "50% 50%",
+    }, 0);
+    // 2. Glide the page to the intro once the screen has essentially gone, so
+    //    the CRT never visibly travels upward.
+    heroTransition.add(scrollWindowTo(targetY, 0.6, "power2.inOut"), 0.46);
+    // 3. Pop the headline into the centred intro as the page settles.
+    if (introHeading) {
+      heroTransition.to(introHeading, {
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        duration: 0.55,
+        ease: "back.out(1.5)",
+      }, 0.66);
+    }
+  }
+
+  function playReverseTransition(onDone) {
+    if (!heroTransitionEnabled || transitionPlaying || heroPhase === "hero") {
+      onDone?.();
+      return;
+    }
+    transitionPlaying = true;
+    crtScreen.style.willChange = "transform";
+    heroTransition?.kill();
+    heroTransition = gsap.timeline({
+      onComplete() {
+        transitionPlaying = false;
+        crtScreen.style.willChange = "";
+        heroPhase = "hero";
+        window.scrollTo(0, 0);
+        onDone?.();
+      },
+    });
+    if (introHeading) {
+      heroTransition.to(introHeading, { ...HEADING_HIDDEN, duration: 0.3, ease: "power2.in" }, 0);
+    }
+    heroTransition.add(scrollWindowTo(0, 0.55, "power2.inOut"), 0);
+    heroTransition.to(crtScreen, {
+      scale: 1,
+      duration: 0.55,
+      ease: "power2.out",
+      transformOrigin: "50% 50%",
+    }, 0.12);
+  }
+
+  const HERO_DOWN_KEYS = new Set(["ArrowDown", "PageDown", " ", "Spacebar", "End"]);
+  const HERO_UP_KEYS = new Set(["ArrowUp", "PageUp", "Home"]);
+
+  function atContentTop() {
+    return window.scrollY <= cachedIntroTop + 2;
+  }
+
+  function onHeroWheel(event) {
+    if (!heroReady) return;
+    if (transitionPlaying) {
+      event.preventDefault();
+      return;
+    }
+    if (heroPhase === "hero") {
+      event.preventDefault();
+      if (event.deltaY > 0) playForwardTransition();
+      return;
+    }
+    if (event.deltaY < 0 && atContentTop()) {
+      event.preventDefault();
+      playReverseTransition();
+    }
+  }
+
+  function onHeroKeydown(event) {
+    if (!heroReady) return;
+    const isNavKey = HERO_DOWN_KEYS.has(event.key) || HERO_UP_KEYS.has(event.key);
+    if (transitionPlaying) {
+      if (isNavKey) event.preventDefault();
+      return;
+    }
+    if (heroPhase === "hero") {
+      if (HERO_DOWN_KEYS.has(event.key)) {
+        event.preventDefault();
+        playForwardTransition();
+      }
+      return;
+    }
+    if (HERO_UP_KEYS.has(event.key) && atContentTop()) {
+      event.preventDefault();
+      playReverseTransition();
+    }
+  }
+
+  let heroTouchStartY = null;
+  function onHeroTouchStart(event) {
+    if (!heroReady) return;
+    heroTouchStartY = event.touches[0] ? event.touches[0].clientY : null;
+  }
+  function onHeroTouchMove(event) {
+    if (!heroReady || heroTouchStartY === null) return;
+    const currentY = event.touches[0] ? event.touches[0].clientY : heroTouchStartY;
+    const delta = heroTouchStartY - currentY; // > 0 = swipe up = scroll down
+    if (transitionPlaying) {
+      event.preventDefault();
+      return;
+    }
+    if (heroPhase === "hero") {
+      event.preventDefault();
+      if (delta > 8) playForwardTransition();
+      return;
+    }
+    if (delta < -8 && atContentTop()) {
+      event.preventDefault();
+      playReverseTransition();
+    }
+  }
+
+  // Keep momentum from drifting up into the (collapsed) hero zone.
+  function onHeroScrollClamp() {
+    if (transitionPlaying) return;
+    if (heroPhase === "content" && window.scrollY < cachedIntroTop - 1) {
+      window.scrollTo(0, cachedIntroTop);
+    }
+  }
+
+  if (heroTransitionEnabled) {
+    window.addEventListener("wheel", onHeroWheel, { passive: false });
+    window.addEventListener("keydown", onHeroKeydown);
+    window.addEventListener("touchstart", onHeroTouchStart, { passive: true });
+    window.addEventListener("touchmove", onHeroTouchMove, { passive: false });
+    window.addEventListener("scroll", onHeroScrollClamp, { passive: true });
+    window.addEventListener("resize", refreshIntroTop);
+
+    // If a reload restored a scrolled position, start in the content state.
+    requestAnimationFrame(() => {
+      refreshIntroTop();
+      if (window.scrollY > 4) {
+        heroPhase = "content";
+        gsap.set(crtScreen, { scale: 0 });
+        if (introHeading) gsap.set(introHeading, { opacity: 1, scale: 1, y: 0 });
+      }
+    });
+  }
 
   function animate() {
     requestAnimationFrame(animate);
 
     if (contextLost) return;
 
+    // Parked in the content view: the CRT is collapsed and off-screen, so skip
+    // rendering it entirely — otherwise the full WebGL scene keeps redrawing
+    // every frame and steals frame budget from the scroll animations.
+    if (heroPhase === "content" && !transitionPlaying) return;
+
     timer.update();
     const elapsed = timer.getElapsed();
     // Wrap the shader time uniform so sin/hash calls keep float precision
     // even after the tab has been open (or backgrounded) for a long time.
     displayMaterial.uniforms.time.value = elapsed % 1000;
-    if (elapsed - screenRefresh.lastFrameAt >= 1 / screenRefresh.fps) {
+    if (!suspendScreenUpdates && elapsed - screenRefresh.lastFrameAt >= 1 / screenRefresh.fps) {
       terminalScreen.tick(elapsed);
       screenTexture.needsUpdate = true;
       screenRefresh.lastFrameAt = elapsed;
@@ -280,12 +509,12 @@ document.addEventListener("DOMContentLoaded", () => {
     lerpedMouse.x = gsap.utils.interpolate(lerpedMouse.x, mouse.x, 0.05);
     lerpedMouse.y = gsap.utils.interpolate(lerpedMouse.y, mouse.y, 0.05);
     const mouseInfluence = THREE.MathUtils.lerp(0.0, 0.5, zoom.current);
-    const modelScale = THREE.MathUtils.lerp(1.12, 1.14, zoom.current);
+    const modelScale = THREE.MathUtils.lerp(1.45, 1.48, zoom.current);
     const baseRotationX = THREE.MathUtils.lerp(0.0, 0.012, zoom.current);
     const baseRotationY = THREE.MathUtils.lerp(0.0, -0.035, zoom.current);
     const baseRotationZ = THREE.MathUtils.lerp(0.0, 0.002, zoom.current);
     monitorGroup.scale.setScalar(modelScale);
-    monitorGroup.position.y = THREE.MathUtils.lerp(0.0, -0.025, zoom.current);
+    monitorGroup.position.y = THREE.MathUtils.lerp(0.0, 0.005, zoom.current);
     monitorGroup.rotation.x = baseRotationX + lerpedMouse.y * 0.1 * mouseInfluence;
     monitorGroup.rotation.y = baseRotationY + lerpedMouse.x * 0.16 * mouseInfluence;
     monitorGroup.rotation.z = baseRotationZ;
@@ -358,6 +587,28 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function ambientFlicker() {
+    if (glitchState.intensity > 0.04) return;
+    if (glitchAnimation) glitchAnimation.kill();
+    glitchState.intensity = 0.08 + Math.random() * 0.1;
+    glitchAnimation = gsap.to(glitchState, {
+      intensity: 0,
+      duration: 0.32 + Math.random() * 0.28,
+      ease: "power2.out",
+      onUpdate() {
+        displayMaterial.uniforms.glitchIntensity.value = glitchState.intensity;
+      },
+    });
+  }
+
+  function scheduleAmbientFlicker() {
+    const delay = 7000 + Math.random() * 11000;
+    window.setTimeout(() => {
+      ambientFlicker();
+      scheduleAmbientFlicker();
+    }, delay);
+  }
+
   function setActiveProject(activeItem) {
     projectItems.forEach((item) =>
       item.classList.toggle("active", item === activeItem),
@@ -376,7 +627,25 @@ document.addEventListener("DOMContentLoaded", () => {
     flashDisplay();
   }
 
+  function restoreZoomedHomeState() {
+    started = true;
+    heroReady = true;
+    zoom.current = 1;
+    terminalOverlay.style.opacity = "0";
+    terminalOverlay.style.pointerEvents = "none";
+    renderer.domElement.style.opacity = "1";
+    setKpMenuVisibility(true);
+    setStatusPanelsVisibility(true);
+    setActiveProject(null);
+    terminalScreen.setIdle();
+    scheduleAmbientFlicker();
+  }
+
   initKpMenu();
+  initScrollSpy();
+  if (restoreZoomedHome) {
+    restoreZoomedHomeState();
+  }
 
   function resetInteractiveGrid(container) {
     container.innerHTML = "";
@@ -533,14 +802,54 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         linkElement.addEventListener("click", (event) => {
+          const href = linkElement.getAttribute("href");
+
+          if (linkElement.dataset.terminalNav === "true") {
+            event.preventDefault();
+            setActiveKpMenuItem(item);
+            // Going home shows the CRT, so reverse the collapse if we're in
+            // the content view; otherwise just reset the screen.
+            if (!heroTransitionEnabled) {
+              smoothScrollToElement(hero);
+              setDisplayHome();
+            } else if (heroPhase === "content") {
+              playReverseTransition(setDisplayHome);
+            } else {
+              setDisplayHome();
+            }
+            return;
+          }
+
+          if (href && href.startsWith("#") && href.length > 1) {
+            event.preventDefault();
+            const target = document.querySelector(href);
+            if (!target) return;
+            // Leaving the hero for a content section collapses the CRT first.
+            if (heroTransitionEnabled && heroPhase === "hero") {
+              playForwardTransition(() => smoothScrollToElement(target));
+            } else {
+              smoothScrollToElement(target);
+            }
+            return;
+          }
+
+          if (href !== "#") return;
           event.preventDefault();
 
-          if (project) {
-            setDisplayProject(project);
-            setActiveKpMenuItem(item);
-          } else if (linkElement.dataset.projectHome === "true") {
-            setDisplayHome();
-            setActiveKpMenuItem(item);
+          // These drive the CRT screen, so bring it back if we're in content.
+          const showOnScreen = () => {
+            if (project) {
+              setDisplayProject(project);
+              setActiveKpMenuItem(item);
+            } else if (linkElement.dataset.projectHome === "true") {
+              setDisplayHome();
+              setActiveKpMenuItem(item);
+            }
+          };
+          if (heroTransitionEnabled && heroPhase === "content") {
+            playReverseTransition(showOnScreen);
+          } else {
+            showOnScreen();
           }
         });
       }
@@ -568,6 +877,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     requestAnimationFrame(() => {
+      if (restoreZoomedHome) {
+        kpMenuItems.forEach((item) => {
+          item.style.transform = "translateX(0px)";
+        });
+        return;
+      }
+
       animateKpMenuItems("in");
       shuffleAllKpMenuText();
     });
@@ -580,6 +896,27 @@ document.addEventListener("DOMContentLoaded", () => {
         item.style.transform =
           direction === "in" ? "translateX(0px)" : "translateX(-80px)";
       }, index * 45);
+    });
+  }
+
+  function smoothScrollToElement(target) {
+    const startY = window.scrollY;
+    const targetY = target.getBoundingClientRect().top + window.scrollY;
+    const travel = Math.abs(targetY - startY);
+    const scrollState = { y: startY };
+
+    activeScrollTween?.kill();
+    activeScrollTween = gsap.to(scrollState, {
+      y: targetY,
+      duration: Math.min(Math.max(travel / 850, 0.9), 1.65),
+      ease: "power2.inOut",
+      overwrite: true,
+      onUpdate() {
+        window.scrollTo(0, scrollState.y);
+      },
+      onComplete() {
+        activeScrollTween = null;
+      },
     });
   }
 
@@ -604,6 +941,49 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Highlight the nav item for whichever section is currently in view.
+  function initScrollSpy() {
+    if (!kpMenuContainer) return;
+
+    const spyItems = new Map();
+    kpMenuContainer
+      .querySelectorAll(".kp-menu-item-link a[data-spy]")
+      .forEach((link) => {
+        const item = link.closest(".kp-menu-item");
+        if (item) spyItems.set(link.dataset.spy, item);
+      });
+    if (!spyItems.size) return;
+
+    // Document-order anchors → spy key (intro-copy + stats both map to experience).
+    const anchorDefs = [
+      [document.querySelector(".hero"), "terminal"],
+      [document.querySelector("#about"), "about"],
+      [document.querySelector(".stats"), "experience"],
+      [document.querySelector("#projects"), "projects"],
+      [document.querySelector("#contact"), "contact"],
+    ].filter(([el, key]) => el && spyItems.has(key));
+    if (!anchorDefs.length) return;
+
+    let currentKey = null;
+
+    const updateSpy = () => {
+      const centerY = window.scrollY + window.innerHeight / 2;
+      let key = anchorDefs[0][1];
+      for (const [el, anchorKey] of anchorDefs) {
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        if (top <= centerY) key = anchorKey;
+      }
+      if (key !== currentKey) {
+        currentKey = key;
+        setActiveKpMenuItem(spyItems.get(key));
+      }
+    };
+
+    updateSpy();
+    window.addEventListener("scroll", updateSpy, { passive: true });
+    window.addEventListener("resize", updateSpy);
+  }
+
   function setKpMenuVisibility(visible, { immediate = true } = {}) {
     if (!kpMenuContainer) return;
 
@@ -621,28 +1001,23 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  function setLanguageSwitchVisibility(visible, { immediate = true } = {}) {
-    if (!languageSwitch) return;
-
-    languageSwitch.style.pointerEvents = visible ? "auto" : "none";
-
-    if (immediate || !visible) {
-      languageSwitch.style.opacity = visible ? "1" : "0";
-    }
-
-    languageSwitch
-      .querySelectorAll("button, [tabindex], .language-switch-segment")
-      .forEach((button) => {
-        button.tabIndex = visible ? 0 : -1;
-      });
-  }
-
   function setStatusPanelsVisibility(visible, { immediate = true } = {}) {
     if (!statusPanels.length) return;
 
     statusPanels.forEach((panel) => {
       panel.style.opacity = immediate || !visible ? (visible ? "1" : "0") : panel.style.opacity;
     });
+  }
+
+  function startMemTicker() {
+    if (!memValueEl) return;
+    let mem = 72;
+    const tick = () => {
+      const drift = Math.round((Math.random() - 0.5) * 4);
+      mem = Math.max(64, Math.min(81, mem + drift));
+      memValueEl.textContent = `${mem}%`;
+    };
+    window.setInterval(tick, 1800);
   }
 
   function startStatusClock() {
@@ -750,5 +1125,87 @@ document.addEventListener("DOMContentLoaded", () => {
       }, index * shuffleInterval);
       timerState.timeouts.push(startTimeout);
     });
+  }
+
+  function runBootSequence() {
+    const bootScreen = document.getElementById("boot-screen");
+    if (!bootScreen) return;
+
+    if (isBackForwardNavigation()) {
+      bootScreen.remove();
+      return;
+    }
+
+    const output = bootScreen.querySelector(".boot-screen-output");
+    if (!output) {
+      bootScreen.remove();
+      return;
+    }
+
+    const lines = [
+      { text: "MLINUX BIOS v2.1.4", cls: "accent" },
+      { text: "COPYRIGHT (C) 2024 MLINUX SYSTEMS", cls: "dim" },
+      { text: "" },
+      { text: "CPU       MLINX 68000 @ 7.16 MHz       [OK]", cls: "ok" },
+      { text: "MEM       512K RAM TEST                [OK]", cls: "ok" },
+      { text: "VID       NTSC 525-LINE CRT            [OK]", cls: "ok" },
+      { text: "" },
+      { text: "DETECTING HARDWARE ...", cls: "dim" },
+      { text: "  > KEYBOARD ................. OK" },
+      { text: "  > DISPLAY .................. OK" },
+      { text: "  > NETWORK INTERFACE ........ OK" },
+      { text: "" },
+      { text: "LOADING MODULES ...", cls: "dim" },
+      { text: "  > CORE.SYS" },
+      { text: "  > GRID.SYS" },
+      { text: "  > TERMINAL.SYS" },
+      { text: "  > SHADER.GLSL" },
+      { text: "" },
+      { text: "SYSTEM READY", cls: "accent" },
+      { text: "LAUNCHING TERMINAL ...", cursor: true },
+    ];
+
+    let i = 0;
+    const tick = () => {
+      if (i >= lines.length) {
+        window.setTimeout(() => {
+          bootScreen.classList.add("is-hidden");
+          window.setTimeout(() => {
+            bootScreen.remove();
+          }, 520);
+        }, 360);
+        return;
+      }
+
+      const { text, cls, cursor } = lines[i];
+      const span = document.createElement("span");
+      span.className =
+        "boot-screen-line" + (cls ? ` boot-screen-line--${cls}` : "");
+      if (text === "") {
+        span.innerHTML = "&nbsp;";
+      } else if (cls === "ok" && text.endsWith("[OK]")) {
+        span.innerHTML =
+          text.slice(0, -4) + '<span class="boot-ok">[OK]</span>';
+      } else {
+        span.textContent = text;
+      }
+      if (cursor) {
+        const c = document.createElement("span");
+        c.className = "boot-screen-cursor";
+        span.appendChild(c);
+      }
+      output.appendChild(span);
+
+      i += 1;
+      const delay = text === "" ? 55 : 85 + Math.random() * 55;
+      window.setTimeout(tick, delay);
+    };
+
+    tick();
+  }
+
+  function isBackForwardNavigation() {
+    const navEntry = performance.getEntriesByType?.("navigation")?.[0];
+    return navEntry?.type === "back_forward";
   }
 });
