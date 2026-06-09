@@ -5,6 +5,18 @@ import { vertexShader, fragmentShader } from "./shaders.js";
 import { createTerminalScreen } from "./terminal-screen.js";
 document.addEventListener("DOMContentLoaded", () => {
   const restoreZoomedHome = isBackForwardNavigation();
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  const compactViewport = window.matchMedia("(max-width: 900px)").matches;
+  const lowPowerDevice =
+    compactViewport ||
+    prefersReducedMotion ||
+    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+    (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
+    navigator.connection?.saveData === true;
+
+  document.documentElement.classList.toggle("reduced-effects", lowPowerDevice);
 
   runBootSequence();
 
@@ -27,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const GRID_HIGHLIGHT_DURATION = 300;
   const gridBlocks = [];
   const gridLookup = new Map();
+  const activeGridBlocks = new Set();
   const shuffleTimers = new WeakMap();
   const gridState = {
     columns: 0,
@@ -41,9 +54,20 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   let activeScrollTween = null;
   const screenRefresh = {
-    fps: 30,
+    fps: lowPowerDevice ? 12 : 20,
     lastFrameAt: 0,
   };
+  const renderRefresh = {
+    fps: lowPowerDevice ? 20 : 30,
+    lastFrameAt: 0,
+  };
+  let pageVisible = !document.hidden;
+  let heroVisible = true;
+  let gridAnimationRunning = false;
+  let resizeFrame = 0;
+  let pointerFrame = 0;
+  let initialRevealPlaying = false;
+  let scenePrewarmed = false;
 
   // ── Terminal (2D fullscreen overlay) ──────────────────────────
   const projectItems = [];
@@ -76,9 +100,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const cameraLookTarget = new THREE.Vector3(0, 0.03, 0.041);
   camera.lookAt(cameraLookTarget);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: !lowPowerDevice,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, lowPowerDevice ? 1 : 1.25));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.25;
   renderer.domElement.style.position = "absolute";
@@ -119,14 +147,104 @@ document.addEventListener("DOMContentLoaded", () => {
   const monitorGroup = new THREE.Group();
   scene.add(monitorGroup);
 
-  new GLTFLoader().load("/monitor.glb", (gltf) => {
-    const model = gltf.scene;
-    const center = new THREE.Box3()
-      .setFromObject(model)
-      .getCenter(new THREE.Vector3());
-    model.position.sub(center);
-    monitorGroup.add(model);
-  });
+  const fallbackMonitor = createFallbackMonitor();
+  monitorGroup.add(fallbackMonitor);
+
+  const monitorUrl = `${import.meta.env.BASE_URL}monitor.glb`;
+  let monitorLoadStarted = false;
+
+  function prewarmScene() {
+    if (scenePrewarmed || contextLost) return;
+    terminalScreen.tick(timer.getElapsed());
+    screenTexture.needsUpdate = true;
+    renderer.compile(scene, camera);
+    renderer.render(scene, camera);
+    scenePrewarmed = true;
+  }
+
+  function disposeObject(object) {
+    object.traverse((child) => {
+      child.geometry?.dispose();
+
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      materials.filter(Boolean).forEach((material) => material.dispose());
+    });
+  }
+
+  function loadMonitorModel() {
+    if (monitorLoadStarted || lowPowerDevice || !pageVisible) return;
+    monitorLoadStarted = true;
+
+    new GLTFLoader().load(
+      monitorUrl,
+      (gltf) => {
+        const model = gltf.scene;
+        const center = new THREE.Box3()
+          .setFromObject(model)
+          .getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        monitorGroup.remove(fallbackMonitor);
+        disposeObject(fallbackMonitor);
+        monitorGroup.add(model);
+        scenePrewarmed = false;
+        if (!started && "requestIdleCallback" in window) {
+          window.requestIdleCallback(prewarmScene, { timeout: 2500 });
+        }
+      },
+      undefined,
+      (error) => {
+        monitorLoadStarted = false;
+        console.error(`Unable to load monitor model from ${monitorUrl}`, error);
+      },
+    );
+  }
+
+  const scheduleMonitorLoad = () => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(loadMonitorModel, { timeout: 9000 });
+    } else {
+      window.setTimeout(loadMonitorModel, 5000);
+    }
+  };
+  window.addEventListener("load", scheduleMonitorLoad, { once: true });
+
+  function createFallbackMonitor() {
+    const group = new THREE.Group();
+    group.name = "fallback-monitor";
+
+    const shellMaterial = new THREE.MeshStandardMaterial({
+      color: 0x252422,
+      roughness: 0.72,
+      metalness: 0.08,
+    });
+    const edgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x11110f,
+      roughness: 0.8,
+      metalness: 0.04,
+    });
+
+    const addBox = (width, height, depth, x, y, z, material = shellMaterial) => {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, depth),
+        material,
+      );
+      mesh.position.set(x, y, z);
+      group.add(mesh);
+    };
+
+    addBox(0.39, 0.34, 0.13, -0.008, 0.002, -0.045);
+    addBox(0.36, 0.035, 0.05, -0.008, 0.145, 0.018, edgeMaterial);
+    addBox(0.36, 0.035, 0.05, -0.008, -0.135, 0.018, edgeMaterial);
+    addBox(0.04, 0.25, 0.05, -0.168, 0.005, 0.018, edgeMaterial);
+    addBox(0.04, 0.25, 0.05, 0.152, 0.005, 0.018, edgeMaterial);
+    addBox(0.12, 0.08, 0.09, -0.008, -0.205, -0.02);
+    addBox(0.28, 0.035, 0.16, -0.008, -0.255, -0.035, edgeMaterial);
+
+    group.rotation.x = -0.015;
+    return group;
+  }
 
   function createScreenGeometry(w, h, r) {
     const shape = new THREE.Shape();
@@ -212,64 +330,71 @@ document.addEventListener("DOMContentLoaded", () => {
   startStatusClock();
   startMemTicker();
 
-  if (interactiveGrid) {
+  if (interactiveGrid && !lowPowerDevice) {
     resetInteractiveGrid(interactiveGrid);
-    requestAnimationFrame(updateGridHighlights);
+  }
+
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(prewarmScene, { timeout: 1800 });
+  } else {
+    window.setTimeout(prewarmScene, 700);
   }
 
   // "start" command: crossfade from 2D terminal to 3D, then zoom out
   terminalScreen.onStart = () => {
     if (started) return;
     started = true;
+    initialRevealPlaying = true;
+    suspendScreenUpdates = true;
+    prewarmScene();
+    terminalOverlay.style.willChange = "opacity";
 
     const tl = gsap.timeline();
 
-    // Fade out 2D overlay, fade in 3D renderer (camera is zoomed into screen)
+    // The two canvases show the same terminal frame, so reveal the prewarmed
+    // WebGL layer immediately and only fade the top canvas. Avoiding two
+    // fullscreen alpha animations keeps this handoff compositor-friendly.
+    gsap.set(renderer.domElement, { opacity: 1 });
     tl.to(terminalOverlay, {
       opacity: 0,
-      duration: 0.6,
-      ease: "power2.in",
+      duration: 0.28,
+      ease: "power1.out",
       onComplete() {
         terminalOverlay.style.pointerEvents = "none";
+        terminalOverlay.style.willChange = "";
       },
     });
-    tl.to(renderer.domElement, {
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out",
-    }, "<");
     tl.call(() => {
       setKpMenuVisibility(true, { immediate: false });
       setStatusPanelsVisibility(true, { immediate: false });
-      shuffleAllKpMenuText();
-      scheduleAmbientFlicker();
-    }, [], 0.68);
+    }, [], 1.45);
     tl.to(kpMenuContainer, {
       opacity: 1,
       duration: 0.45,
       ease: "power2.out",
-    }, 0.68);
+    }, 1.45);
     tl.to(statusPanels, {
       opacity: 1,
       duration: 0.45,
       ease: "power2.out",
       stagger: 0.04,
-    }, 0.68);
-
-    // Glitch flash at transition point
-    tl.call(() => flashDisplay(), [], 0.3);
+    }, 1.45);
 
     // Zoom out camera to reveal CRT monitor
     tl.to(zoom, {
       current: 1,
-      duration: 2.8,
-      ease: "power2.inOut",
+      duration: 2.15,
+      ease: "power3.inOut",
       onComplete() {
+        initialRevealPlaying = false;
+        suspendScreenUpdates = false;
         document.documentElement.style.overflow = "";
         heroReady = true;
         refreshIntroTop();
+        scheduleAmbientFlicker();
+        terminalScreen.preloadProjects();
       },
-    }, 0.4);
+    }, 0.16);
   };
 
   // ── One-scroll hero → content transition ───────────────────────
@@ -278,9 +403,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // (the window stays put, so it shrinks toward its centre without drifting
   // up), then the page glides to the intro and the headline pops in centred.
   // Scrolling up at the top of the content plays the same motion in reverse.
-  const prefersReducedMotion = window.matchMedia(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
   const introSection = document.querySelector(".intro-copy");
   const introHeading = introSection?.querySelector("h3");
   const crtScreen = renderer.domElement;
@@ -485,15 +607,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function animate() {
+  const heroObserver = new IntersectionObserver(
+    ([entry]) => {
+      heroVisible = entry.isIntersecting;
+    },
+    { rootMargin: "120px 0px" },
+  );
+  heroObserver.observe(hero);
+
+  document.addEventListener("visibilitychange", () => {
+    pageVisible = !document.hidden;
+    if (pageVisible && !monitorLoadStarted) scheduleMonitorLoad();
+  });
+
+  function animate(frameTime = 0) {
     requestAnimationFrame(animate);
 
-    if (contextLost) return;
+    if (contextLost || !pageVisible || (!heroVisible && !transitionPlaying)) return;
 
     // Parked in the content view: the CRT is collapsed and off-screen, so skip
     // rendering it entirely — otherwise the full WebGL scene keeps redrawing
     // every frame and steals frame budget from the scroll animations.
     if (heroPhase === "content" && !transitionPlaying) return;
+    const targetRenderFps = initialRevealPlaying
+      ? (lowPowerDevice ? 30 : 60)
+      : renderRefresh.fps;
+    if (frameTime - renderRefresh.lastFrameAt < 1000 / targetRenderFps) return;
+    renderRefresh.lastFrameAt = frameTime;
 
     timer.update();
     const elapsed = timer.getElapsed();
@@ -502,9 +642,11 @@ document.addEventListener("DOMContentLoaded", () => {
     displayMaterial.uniforms.time.value = elapsed % 1000;
     if (!suspendScreenUpdates && elapsed - screenRefresh.lastFrameAt >= 1 / screenRefresh.fps) {
       terminalScreen.tick(elapsed);
-      screenTexture.needsUpdate = true;
+      if (started) screenTexture.needsUpdate = true;
       screenRefresh.lastFrameAt = elapsed;
     }
+
+    if (!started) return;
 
     lerpedMouse.x = gsap.utils.interpolate(lerpedMouse.x, mouse.x, 0.05);
     lerpedMouse.y = gsap.utils.interpolate(lerpedMouse.y, mouse.y, 0.05);
@@ -548,15 +690,21 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.render(scene, camera);
   }
 
-  animate();
+  requestAnimationFrame(animate);
 
-  window.addEventListener("mousemove", (e) => {
-    mouse.x = (e.clientX / innerWidth - 0.5) * 10;
-    mouse.y = (e.clientY / innerHeight - 0.5) * 5;
-    gridMouse.x = e.clientX;
-    gridMouse.y = e.clientY;
-    addGridHighlights();
-  });
+  window.addEventListener("mousemove", (event) => {
+    if (pointerFrame) return;
+    pointerFrame = requestAnimationFrame(() => {
+      pointerFrame = 0;
+      mouse.x = (event.clientX / innerWidth - 0.5) * 10;
+      mouse.y = (event.clientY / innerHeight - 0.5) * 5;
+      if (!lowPowerDevice) {
+        gridMouse.x = event.clientX;
+        gridMouse.y = event.clientY;
+        addGridHighlights();
+      }
+    });
+  }, { passive: true });
 
   window.addEventListener("mouseout", () => {
     gridMouse.x = undefined;
@@ -564,25 +712,34 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("resize", () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-    if (interactiveGrid) resetInteractiveGrid(interactiveGrid);
-  });
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(devicePixelRatio, lowPowerDevice ? 1 : 1.25));
+      renderer.setSize(innerWidth, innerHeight);
+      if (interactiveGrid && !lowPowerDevice) resetInteractiveGrid(interactiveGrid);
+    });
+  }, { passive: true });
 
   const glitchState = { intensity: 0 };
   let glitchAnimation = null;
 
   function flashDisplay() {
     if (glitchAnimation) glitchAnimation.kill();
-    glitchState.intensity = 1.0;
+    glitchState.intensity = 0.72;
+    displayMaterial.uniforms.glitchIntensity.value = glitchState.intensity;
 
     glitchAnimation = gsap.to(glitchState, {
       intensity: 0,
-      duration: 0.75,
-      ease: "power3.out",
+      duration: 0.38,
+      ease: "power2.out",
       onUpdate() {
         displayMaterial.uniforms.glitchIntensity.value = glitchState.intensity;
+      },
+      onComplete() {
+        glitchAnimation = null;
       },
     });
   }
@@ -602,9 +759,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function scheduleAmbientFlicker() {
+    if (lowPowerDevice) return;
     const delay = 7000 + Math.random() * 11000;
     window.setTimeout(() => {
-      ambientFlicker();
+      if (pageVisible && heroVisible) ambientFlicker();
       scheduleAmbientFlicker();
     }, delay);
   }
@@ -616,7 +774,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setDisplayProject(project, activeItem = null) {
-    terminalScreen.setProject(project);
+    const projectChanged = terminalScreen.setProject(project);
+    if (!projectChanged) return;
+    terminalScreen.tick(timer.getElapsed());
+    screenTexture.needsUpdate = true;
     setActiveProject(activeItem);
     flashDisplay();
   }
@@ -648,9 +809,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function resetInteractiveGrid(container) {
-    container.innerHTML = "";
+    const fragment = document.createDocumentFragment();
     gridBlocks.length = 0;
     gridLookup.clear();
+    activeGridBlocks.clear();
 
     const gridWidth = window.innerWidth;
     const gridHeight = window.innerHeight;
@@ -667,9 +829,11 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let colIndex = 0; colIndex < gridColumnCount; colIndex++) {
         const posX = colIndex * GRID_BLOCK_SIZE + gridOffsetX;
         const posY = rowIndex * GRID_BLOCK_SIZE + gridOffsetY;
-        createGridBlock(container, posX, posY, colIndex, rowIndex);
+        createGridBlock(fragment, posX, posY, colIndex, rowIndex);
       }
     }
+
+    container.replaceChildren(fragment);
   }
 
   function createGridBlock(container, posX, posY, gridX, gridY) {
@@ -712,8 +876,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!closestGridBlock || closestGridDistance > gridMouse.radius) return;
 
     const currentGridTime = Date.now();
+    const animationWasIdle = activeGridBlocks.size === 0;
     closestGridBlock.element.classList.add("highlight");
     closestGridBlock.highlightEndTime = currentGridTime + GRID_HIGHLIGHT_DURATION;
+    activeGridBlocks.add(closestGridBlock);
 
     const gridClusterSize = 1;
     let currentGridBlock = closestGridBlock;
@@ -734,23 +900,34 @@ document.addEventListener("DOMContentLoaded", () => {
       const randomGridNeighbor = gridNeighbors[Math.floor(Math.random() * gridNeighbors.length)];
       randomGridNeighbor.element.classList.add("highlight");
       randomGridNeighbor.highlightEndTime = currentGridTime + GRID_HIGHLIGHT_DURATION + i * 10;
+      activeGridBlocks.add(randomGridNeighbor);
 
       highlightedGridBlocks.push(randomGridNeighbor);
       currentGridBlock = randomGridNeighbor;
+    }
+
+    if (animationWasIdle && !gridAnimationRunning) {
+      gridAnimationRunning = true;
+      requestAnimationFrame(updateGridHighlights);
     }
   }
 
   function updateGridHighlights() {
     const currentGridTime = Date.now();
 
-    gridBlocks.forEach((gridBlock) => {
+    activeGridBlocks.forEach((gridBlock) => {
       if (gridBlock.highlightEndTime > 0 && currentGridTime > gridBlock.highlightEndTime) {
         gridBlock.element.classList.remove("highlight");
         gridBlock.highlightEndTime = 0;
+        activeGridBlocks.delete(gridBlock);
       }
     });
 
-    requestAnimationFrame(updateGridHighlights);
+    if (activeGridBlocks.size) {
+      requestAnimationFrame(updateGridHighlights);
+    } else {
+      gridAnimationRunning = false;
+    }
   }
 
   function initKpMenu() {
@@ -782,7 +959,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (linkElement) {
         linkElement.addEventListener("mouseenter", () => {
-          addShuffleEffect(linkElement);
           activateCharTrail(spanChars);
         });
 
@@ -824,11 +1000,15 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             const target = document.querySelector(href);
             if (!target) return;
+            const navigateToDeckCard = () => {
+              if (window.navigateSectionDeck?.(href)) return;
+              smoothScrollToElement(target);
+            };
             // Leaving the hero for a content section collapses the CRT first.
             if (heroTransitionEnabled && heroPhase === "hero") {
-              playForwardTransition(() => smoothScrollToElement(target));
+              playForwardTransition(navigateToDeckCard);
             } else {
-              smoothScrollToElement(target);
+              navigateToDeckCard();
             }
             return;
           }
@@ -872,7 +1052,7 @@ document.addEventListener("DOMContentLoaded", () => {
     kpMenuContainer.querySelectorAll(".kp-menu-item").forEach((entry) => {
       entry.addEventListener("mouseenter", () => {
         const textNodes = entry.querySelectorAll(".kp-menu-item-link a, .kp-menu-item > span");
-        textNodes.forEach(addShuffleEffect);
+        textNodes.forEach((textNode) => addShuffleEffect(textNode, { fast: true }));
       });
     });
 
@@ -1082,7 +1262,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .forEach(addShuffleEffect);
   }
 
-  function addShuffleEffect(element) {
+  function addShuffleEffect(element, { fast = false } = {}) {
     const chars = [...element.querySelectorAll(".char")];
     if (!chars.length) return;
 
@@ -1101,9 +1281,9 @@ document.addEventListener("DOMContentLoaded", () => {
       intervals: [],
     };
     shuffleTimers.set(element, timerState);
-    const shuffleInterval = 10;
-    const resetDelay = 70;
-    const additionalDelay = 120;
+    const shuffleInterval = fast ? 7 : 10;
+    const resetDelay = fast ? 34 : 70;
+    const additionalDelay = fast ? 24 : 120;
 
     chars.forEach((char, index) => {
       const startTimeout = setTimeout(() => {
@@ -1136,72 +1316,42 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const output = bootScreen.querySelector(".boot-screen-output");
-    if (!output) {
-      bootScreen.remove();
-      return;
-    }
+    const fill = bootScreen.querySelector(".boot-loader-fill");
+    const progressLabel = bootScreen.querySelector("[data-boot-progress]");
+    const statusLabel = bootScreen.querySelector("[data-boot-status]");
+    if (!fill || !progressLabel || !statusLabel) return;
 
-    const lines = [
-      { text: "MLINUX BIOS v2.1.4", cls: "accent" },
-      { text: "COPYRIGHT (C) 2024 MLINUX SYSTEMS", cls: "dim" },
-      { text: "" },
-      { text: "CPU       MLINX 68000 @ 7.16 MHz       [OK]", cls: "ok" },
-      { text: "MEM       512K RAM TEST                [OK]", cls: "ok" },
-      { text: "VID       NTSC 525-LINE CRT            [OK]", cls: "ok" },
-      { text: "" },
-      { text: "DETECTING HARDWARE ...", cls: "dim" },
-      { text: "  > KEYBOARD ................. OK" },
-      { text: "  > DISPLAY .................. OK" },
-      { text: "  > NETWORK INTERFACE ........ OK" },
-      { text: "" },
-      { text: "LOADING MODULES ...", cls: "dim" },
-      { text: "  > CORE.SYS" },
-      { text: "  > GRID.SYS" },
-      { text: "  > TERMINAL.SYS" },
-      { text: "  > SHADER.GLSL" },
-      { text: "" },
-      { text: "SYSTEM READY", cls: "accent" },
-      { text: "LAUNCHING TERMINAL ...", cursor: true },
+    const statuses = [
+      [18, "Preparing display..."],
+      [46, "Loading terminal..."],
+      [72, "Warming CRT renderer..."],
+      [92, "Nearly there..."],
+      [100, "Terminal ready."],
     ];
+    const startedAt = performance.now();
+    const duration = lowPowerDevice ? 1150 : 1450;
 
-    let i = 0;
-    const tick = () => {
-      if (i >= lines.length) {
-        window.setTimeout(() => {
-          bootScreen.classList.add("is-hidden");
-          window.setTimeout(() => {
-            bootScreen.remove();
-          }, 520);
-        }, 360);
+    const update = (now) => {
+      const elapsed = now - startedAt;
+      const progress = Math.min(100, Math.round((elapsed / duration) * 100));
+      fill.style.transform = `scaleX(${progress / 100})`;
+      progressLabel.textContent = `${String(progress).padStart(2, "0")}%`;
+      statusLabel.textContent =
+        statuses.find(([threshold]) => progress <= threshold)?.[1] ||
+        statuses.at(-1)[1];
+
+      if (progress < 100) {
+        requestAnimationFrame(update);
         return;
       }
 
-      const { text, cls, cursor } = lines[i];
-      const span = document.createElement("span");
-      span.className =
-        "boot-screen-line" + (cls ? ` boot-screen-line--${cls}` : "");
-      if (text === "") {
-        span.innerHTML = "&nbsp;";
-      } else if (cls === "ok" && text.endsWith("[OK]")) {
-        span.innerHTML =
-          text.slice(0, -4) + '<span class="boot-ok">[OK]</span>';
-      } else {
-        span.textContent = text;
-      }
-      if (cursor) {
-        const c = document.createElement("span");
-        c.className = "boot-screen-cursor";
-        span.appendChild(c);
-      }
-      output.appendChild(span);
-
-      i += 1;
-      const delay = text === "" ? 55 : 85 + Math.random() * 55;
-      window.setTimeout(tick, delay);
+      window.setTimeout(() => {
+        bootScreen.classList.add("is-hidden");
+        window.setTimeout(() => bootScreen.remove(), 380);
+      }, 180);
     };
 
-    tick();
+    requestAnimationFrame(update);
   }
 
   function isBackForwardNavigation() {

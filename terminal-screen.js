@@ -88,11 +88,29 @@ export function createTerminalScreen(projects) {
     canvas,
     projects: entries,
     onStart: null,
+    preloadProjects() {
+      let index = 0;
+      const schedule = (callback) => {
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(callback, { timeout: 1800 });
+        } else {
+          window.setTimeout(callback, 120);
+        }
+      };
+      const loadNext = () => {
+        const project = entries[index++];
+        if (!project) return;
+        project.asset?.load?.(() => schedule(loadNext));
+      };
+      schedule(loadNext);
+    },
     setProject(project) {
-      if (!project || state.hover?.slug === project.slug) return;
+      if (!project || state.hover?.slug === project.slug) return false;
+      project.asset?.load?.();
       state.hover = project;
       write(`${promptStr(current())} open ${project.slug}`);
       write(`loading ${project.label.toLowerCase()} preview...`, "dim");
+      return true;
     },
     setIdle() {
       state.hover = null;
@@ -505,13 +523,34 @@ function drawScreen(ctx, state, active, elapsedSeconds) {
 
 function makeAsset(src) {
   const image = new Image();
-  const asset = { image, sprite: null, preview: null };
+  const asset = {
+    image,
+    sprite: null,
+    preview: null,
+    loaded: false,
+    ready: false,
+    callbacks: [],
+    load(onReady) {
+      if (typeof onReady === "function") {
+        if (asset.ready) onReady();
+        else asset.callbacks.push(onReady);
+      }
+      if (!src || asset.loaded) return;
+      asset.loaded = true;
+      image.src = src;
+    },
+  };
   image.decoding = "async";
   image.addEventListener("load", () => {
     asset.sprite = phosphorize(image);
     asset.preview = renderPreviewCanvas(image);
+    asset.ready = true;
+    asset.callbacks.splice(0).forEach((callback) => callback());
   });
-  if (src) image.src = src;
+  image.addEventListener("error", () => {
+    asset.ready = true;
+    asset.callbacks.splice(0).forEach((callback) => callback());
+  });
   return asset;
 }
 

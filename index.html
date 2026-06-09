@@ -8,9 +8,17 @@
     <link rel="stylesheet" href="/experience.css" />
   </head>
   <body>
-    <div class="boot-screen" id="boot-screen" role="status" aria-label="System boot sequence">
-      <div class="boot-screen-frame">
-        <pre class="boot-screen-output"></pre>
+    <div class="boot-screen" id="boot-screen" role="status" aria-label="Loading terminal">
+      <div class="boot-loader">
+        <p class="boot-loader-title type-mono">Loading terminal...</p>
+        <div class="boot-loader-track" aria-hidden="true">
+          <span class="boot-loader-fill"></span>
+        </div>
+        <div class="boot-loader-meta type-mono">
+          <span data-boot-status>Preparing display...</span>
+          <span data-boot-progress>00%</span>
+        </div>
+        <p class="boot-loader-warning type-mono">Use a laptop for the best experience.</p>
       </div>
     </div>
 
@@ -161,6 +169,7 @@
     <section class="hero"></section>
 
     <section class="page-skills">
+      <div class="section-deck-stage">
       <section class="intro-copy" id="about">
         <div class="intro-copy-container">
           <h3>
@@ -281,6 +290,7 @@
           </div>
         </div>
       </section>
+      </div>
     </section>
 
     <script type="module" src="/script.js"></script>

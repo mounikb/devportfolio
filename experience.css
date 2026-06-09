@@ -2218,6 +2218,19 @@
   }
 }
 
+html.reduced-effects .intro-copy-container,
+html.reduced-effects .stats.minimal-section > .minimal-shell,
+html.reduced-effects .project-minimal,
+html.reduced-effects .contact-minimal {
+  backdrop-filter: none;
+}
+
+html.reduced-effects .stats.minimal-section .stat-item,
+html.reduced-effects .project-summary,
+html.reduced-effects .contact-links {
+  will-change: auto;
+}
+
 /* Project and contact cards match the About/Experience footprint */
 .project-minimal,
 .contact-minimal {
@@ -2365,5 +2378,85 @@
   .contact-minimal {
     height: auto;
     max-height: none;
+  }
+}
+
+/* Desktop section deck */
+html.section-deck-enabled .page-skills {
+  position: relative;
+  height: 100svh;
+  min-height: 44rem;
+  overflow: hidden;
+}
+
+html.section-deck-enabled .section-deck-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+html.section-deck-enabled .section-deck-stage > section {
+  position: absolute !important;
+  inset: 0;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: clamp(5.5rem, 10vh, 7.5rem) var(--hud-safe-right)
+    clamp(4.8rem, 9vh, 6.5rem) var(--hud-safe-left) !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+html.section-deck-enabled .section-deck-stage > section.is-deck-active {
+  pointer-events: auto;
+}
+
+html.section-deck-enabled .intro-copy-footer {
+  display: none;
+}
+
+html.section-deck-enabled .intro-copy-container,
+html.section-deck-enabled .stats.minimal-section > .experience-carousel,
+html.section-deck-enabled .project-minimal,
+html.section-deck-enabled .contact-minimal {
+  position: relative;
+  margin: 0 auto !important;
+  transform: translate(-5%, -20%);
+  background: #111210 !important;
+  backdrop-filter: none !important;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px 0 rgba(242, 238, 218, 0.07),
+    0 0.65rem 0 rgba(8, 8, 8, 0.72),
+    0 1.8rem 4.5rem rgba(0, 0, 0, 0.42);
+}
+
+html.section-deck-enabled .section-deck-stage > section:not(.is-deck-active) > * {
+  user-select: none;
+}
+
+html.section-deck-enabled .intro-copy-container::after,
+html.section-deck-enabled .stats.minimal-section > .experience-carousel::after,
+html.section-deck-enabled .project-minimal::after,
+html.section-deck-enabled .contact-minimal::after {
+  content: attr(data-deck-label);
+  position: absolute;
+  right: 1rem;
+  bottom: 0.75rem;
+  color: rgba(242, 238, 218, 0.24);
+  font-family: var(--type-3);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+@media (max-width: 1000px) {
+  .section-deck-stage {
+    display: contents;
   }
 }
