@@ -182,14 +182,20 @@
       </section>
 
       <section class="stats minimal-section" id="experience">
-        <div class="minimal-shell">
-          <header class="minimal-header">
+        <div class="minimal-shell experience-carousel" data-experience-carousel>
+          <header class="minimal-header experience-carousel-header">
             <p class="section-kicker type-mono">Experience</p>
             <h2>Selected work and instruction.</h2>
             <p>A compact record of shipped product work, teaching, freelance delivery, and research.</p>
+            <div class="experience-carousel-controls" aria-label="Experience carousel controls">
+              <button type="button" class="experience-nav-button" data-exp-prev aria-label="Previous experience">‹</button>
+              <span class="experience-counter type-mono" data-exp-counter>01 / 06</span>
+              <button type="button" class="experience-nav-button" data-exp-next aria-label="Next experience">›</button>
+            </div>
           </header>
 
-          <div class="stats-content minimal-list">
+          <div class="experience-viewport">
+          <div class="stats-content minimal-list experience-track" data-exp-track>
             <article class="stat-item minimal-row">
               <span class="minimal-index type-mono">01</span>
               <div>
@@ -232,6 +238,7 @@
                 <p>IEEE Access · Under review · NSGA-II with dual-output Random Forest surrogate</p>
               </div>
             </article>
+          </div>
           </div>
         </div>
       </section>

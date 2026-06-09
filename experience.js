@@ -9,6 +9,7 @@ const prefersReducedMotion = window.matchMedia(
 
 document.addEventListener("DOMContentLoaded", () => {
   initIntroReadFill();
+  initExperienceCarousel();
   initStatsSlide();
   initExpProgress();
   initReveals();
@@ -62,8 +63,81 @@ window.addEventListener("load", () => {
   ScrollTrigger.refresh(true);
 });
 
+function initExperienceCarousel() {
+  const carousel = document.querySelector("[data-experience-carousel]");
+  if (!carousel) return;
+
+  const track = carousel.querySelector("[data-exp-track]");
+  const cards = [...carousel.querySelectorAll(".stat-item")];
+  const prev = carousel.querySelector("[data-exp-prev]");
+  const next = carousel.querySelector("[data-exp-next]");
+  const counter = carousel.querySelector("[data-exp-counter]");
+  if (!track || !cards.length || !prev || !next) return;
+
+  let index = 0;
+
+  const visibleCount = () => {
+    if (window.innerWidth <= 620) return 1;
+    if (window.innerWidth <= 900) return 2;
+    return 3;
+  };
+
+  const update = () => {
+    const count = visibleCount();
+    const maxIndex = Math.max(cards.length - count, 0);
+    index = Math.min(Math.max(index, 0), maxIndex);
+
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap || "0") || 0;
+    const cardWidth = cards[0]?.getBoundingClientRect().width || 0;
+    track.style.transform = `translate3d(${-index * (cardWidth + gap)}px, 0, 0)`;
+
+    prev.disabled = index === 0;
+    next.disabled = index === maxIndex;
+    if (counter) {
+      const start = String(index + 1).padStart(2, "0");
+      const end = String(Math.min(index + count, cards.length)).padStart(2, "0");
+      counter.textContent = `${start}-${end} / ${String(cards.length).padStart(2, "0")}`;
+    }
+  };
+
+  prev.addEventListener("click", () => {
+    index -= 1;
+    update();
+  });
+
+  next.addEventListener("click", () => {
+    index += 1;
+    update();
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+
+    const rect = carousel.getBoundingClientRect();
+    const carouselIsInView = rect.top < window.innerHeight * 0.82 && rect.bottom > window.innerHeight * 0.18;
+    if (!carouselIsInView) return;
+
+    if (event.key === "ArrowRight" && !next.disabled) {
+      event.preventDefault();
+      index += 1;
+      update();
+    }
+
+    if (event.key === "ArrowLeft" && !prev.disabled) {
+      event.preventDefault();
+      index -= 1;
+      update();
+    }
+  });
+
+  window.addEventListener("resize", update);
+  update();
+}
+
 function initStatsSlide() {
-  const statItems = document.querySelectorAll(".stat-item");
+  const statItems = [...document.querySelectorAll(".stat-item")].filter(
+    (item) => !item.closest(".experience-carousel"),
+  );
   if (!statItems.length) return;
 
   if (prefersReducedMotion) {
