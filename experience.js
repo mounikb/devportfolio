@@ -174,6 +174,19 @@ function initSectionDeck() {
     });
   });
 
+  // Tell the nav scroll-spy which deck card is active: the stacked cards all
+  // share one scroll position, so position-based spying cannot tell them apart.
+  let lastAnnouncedIndex = -1;
+  const announceActiveCard = (index) => {
+    if (index === lastAnnouncedIndex) return;
+    lastAnnouncedIndex = index;
+    window.dispatchEvent(
+      new CustomEvent("deck-active-change", {
+        detail: { key: cards[index]?.id || null },
+      }),
+    );
+  };
+
   const timeline = gsap.timeline({
     defaults: { ease: "none" },
     scrollTrigger: {
@@ -193,6 +206,7 @@ function initSectionDeck() {
         cards.forEach((card, index) => {
           card.classList.toggle("is-deck-active", index === activeIndex);
         });
+        announceActiveCard(activeIndex);
       },
     },
   });
@@ -233,6 +247,7 @@ function initSectionDeck() {
   });
 
   cards[0].classList.add("is-deck-active");
+  announceActiveCard(0);
 
   window.navigateSectionDeck = (selector) => {
     const target = document.querySelector(selector);

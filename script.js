@@ -1423,19 +1423,42 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!anchorDefs.length) return;
 
     let currentKey = null;
+    let deckActiveKey = null;
+    // Guard mobile mode: the hero-phase variables below the early mobile
+    // return are never initialised there, so don't touch them.
+    const isMobileMode = document.documentElement.classList.contains("mobile-mode");
 
     const updateSpy = () => {
-      const centerY = window.scrollY + window.innerHeight / 2;
-      let key = anchorDefs[0][1];
-      for (const [el, anchorKey] of anchorDefs) {
-        const top = el.getBoundingClientRect().top + window.scrollY;
-        if (top <= centerY) key = anchorKey;
+      let key;
+      if (!isMobileMode && heroTransitionEnabled && heroPhase === "hero") {
+        // CRT view: the content sections may be pinned right below the
+        // hero, so position math would lie — we're on the terminal.
+        key = "terminal";
+      } else if (
+        deckActiveKey &&
+        document.documentElement.classList.contains("section-deck-enabled")
+      ) {
+        // Deck mode stacks all sections at one scroll position; follow the
+        // active card announced by the deck instead of scroll position.
+        key = deckActiveKey;
+      } else {
+        const centerY = window.scrollY + window.innerHeight / 2;
+        key = anchorDefs[0][1];
+        for (const [el, anchorKey] of anchorDefs) {
+          const top = el.getBoundingClientRect().top + window.scrollY;
+          if (top <= centerY) key = anchorKey;
+        }
       }
-      if (key !== currentKey) {
+      if (key !== currentKey && spyItems.has(key)) {
         currentKey = key;
         setActiveKpMenuItem(spyItems.get(key));
       }
     };
+
+    window.addEventListener("deck-active-change", (event) => {
+      deckActiveKey = event.detail?.key || null;
+      updateSpy();
+    });
 
     updateSpy();
     window.addEventListener("scroll", updateSpy, { passive: true });
