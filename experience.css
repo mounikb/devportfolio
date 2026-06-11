@@ -2676,8 +2676,29 @@ html.section-deck-enabled .contact-minimal::after {
     font-size: 0.8rem;
   }
 
+  /* Fill the card's fixed height instead of forcing a min-height that can
+     overflow it on shorter viewports. */
+  .stats.minimal-section > .experience-carousel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .experience-carousel-header {
+    flex: 0 0 auto;
+  }
+
+  .experience-carousel .experience-viewport {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .stats.minimal-section .experience-track {
+    height: 100%;
+  }
+
   .stats.minimal-section .experience-track .stat-item {
-    min-height: clamp(17.5rem, 24vw, 21rem);
+    min-height: 0;
+    height: 100%;
     padding: clamp(1.2rem, 2vw, 1.5rem);
   }
 
@@ -2739,6 +2760,15 @@ html.section-deck-enabled .contact-minimal::after {
   html.section-deck-enabled .project-minimal::after,
   html.section-deck-enabled .contact-minimal::after {
     font-size: 0.74rem;
+  }
+
+  /* Keep the deck cards visually centred: the base -20% lift was tuned for
+     the smaller pre-scale-up cards and pushes the taller ones off the top. */
+  html.section-deck-enabled .intro-copy-container,
+  html.section-deck-enabled .stats.minimal-section > .experience-carousel,
+  html.section-deck-enabled .project-minimal,
+  html.section-deck-enabled .contact-minimal {
+    transform: translate(-5%, -4%);
   }
 }
 
