@@ -2606,6 +2606,142 @@ html.section-deck-enabled .contact-minimal::after {
   }
 }
 
+/* ── Desktop scale-up ───────────────────────────────────────────────
+   Reproduces the denser 133%-browser-zoom composition at 100%: rem/px
+   values (and the rem caps inside clamp()) are multiplied by ~1.33 while
+   vw terms stay as-is — that is exactly what browser zoom does. Scoped to
+   >1000px so the mobile and tablet layouts are untouched. */
+@media (min-width: 1001px) {
+  .intro-copy-container,
+  .stats.minimal-section > .experience-carousel,
+  .project-minimal,
+  .contact-minimal {
+    width: min(100%, 1040px) !important;
+    height: clamp(30rem, 64vh, 42rem);
+    max-height: 42rem;
+  }
+
+  .intro-copy-container {
+    max-width: 1040px;
+  }
+
+  .stats.minimal-section > .experience-carousel {
+    padding:
+      clamp(1.5rem, 2vw, 2.05rem)
+      clamp(1.3rem, 2.2vw, 2.2rem)
+      clamp(1.8rem, 2.6vw, 2.65rem);
+  }
+
+  .project-minimal,
+  .contact-minimal {
+    padding:
+      clamp(1.5rem, 2vw, 2.05rem)
+      clamp(1.3rem, 2.2vw, 2.2rem)
+      clamp(1.8rem, 2.6vw, 2.65rem) !important;
+    gap: clamp(1.45rem, 2.4vh, 2.1rem);
+  }
+
+  .intro-copy-container {
+    padding:
+      clamp(1.5rem, 2vw, 2.05rem)
+      clamp(1.3rem, 2.2vw, 2.2rem)
+      clamp(1.8rem, 2.6vw, 2.65rem);
+  }
+
+  .intro-copy-container::before {
+    margin-bottom: clamp(0.6rem, 1.2vw, 1rem);
+    font-size: 0.85rem;
+  }
+
+  .intro-copy h3 {
+    font-size: clamp(1.75rem, 2.35vw, 2.9rem);
+  }
+
+  .minimal-header .section-kicker {
+    font-size: 0.85rem;
+  }
+
+  .experience-carousel-header h2 {
+    font-size: clamp(2.1rem, 3vw, 3.25rem);
+  }
+
+  .experience-nav-button {
+    width: 2.7rem;
+    height: 2.7rem;
+    font-size: 1.85rem;
+  }
+
+  .experience-counter {
+    min-width: 6.2rem;
+    font-size: 0.8rem;
+  }
+
+  .stats.minimal-section .experience-track .stat-item {
+    min-height: clamp(17.5rem, 24vw, 21rem);
+    padding: clamp(1.2rem, 2vw, 1.5rem);
+  }
+
+  .minimal-index {
+    font-size: 0.92rem !important;
+  }
+
+  .experience-track .minimal-row h3 {
+    font-size: clamp(1.3rem, 1.45vw, 1.62rem);
+  }
+
+  .experience-track .minimal-row p {
+    font-size: 0.94rem;
+  }
+
+  .project-minimal .minimal-header h2,
+  .contact-minimal .minimal-header h2 {
+    font-size: clamp(2.45rem, 3.7vw, 3.95rem);
+  }
+
+  .project-minimal .minimal-header p:not(.section-kicker) {
+    max-width: 52rem;
+    font-size: clamp(1.15rem, 1.25vw, 1.35rem);
+  }
+
+  .project-summary > p {
+    font-size: clamp(1.25rem, 1.3vw, 1.42rem);
+  }
+
+  .project-details dt {
+    font-size: 0.8rem;
+  }
+
+  .project-details dd {
+    font-size: 1.22rem;
+  }
+
+  .project-link {
+    min-height: 3.1rem;
+    padding: 0.9rem 1.25rem;
+    font-size: 0.82rem;
+  }
+
+  .contact-links a {
+    grid-template-columns: 7.4rem minmax(0, 1fr);
+    padding: clamp(1.15rem, 2.6vh, 1.5rem) 0;
+  }
+
+  .contact-links span {
+    font-size: 0.8rem;
+  }
+
+  .contact-links strong {
+    font-size: clamp(1.28rem, 1.75vw, 1.58rem);
+  }
+
+  html.section-deck-enabled .intro-copy-container::after,
+  html.section-deck-enabled .stats.minimal-section > .experience-carousel::after,
+  html.section-deck-enabled .project-minimal::after,
+  html.section-deck-enabled .contact-minimal::after {
+    font-size: 0.74rem;
+  }
+}
+
 @media (max-width: 620px) {
   :root {
     --hud-safe-left: 0.75rem;

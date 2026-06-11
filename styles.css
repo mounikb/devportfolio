@@ -1318,6 +1318,84 @@ html.reduced-effects .interactive-grid .block {
   }
 }
 
+/* ── Desktop chrome scale-up (see experience.css for the content cards):
+   matches the 133%-zoom look at 100%; >1000px only so mobile is untouched. */
+@media (min-width: 1001px) {
+  .top-status {
+    gap: 0.45rem;
+    padding: 0.65rem 0.95rem 0.6rem;
+  }
+
+  .top-status-text {
+    font-size: 0.85rem;
+  }
+
+  .top-status-dots span {
+    width: 0.78rem;
+    height: 0.78rem;
+  }
+
+  .top-status-meta {
+    gap: 0.26rem;
+    font-size: 0.66rem;
+  }
+
+  .status-panel {
+    gap: 0.6rem;
+    padding: 0.38rem 0.62rem;
+    font-size: 0.76rem;
+  }
+
+  .status-panel-icon {
+    font-size: 0.68rem;
+  }
+
+  .status-panel-cursor {
+    width: 0.46rem;
+    height: 0.74rem;
+  }
+
+  .status-panel-pulse-dot {
+    width: 0.36rem;
+    height: 0.36rem;
+  }
+
+  .social-icons {
+    gap: 0.7rem;
+    padding: 0.9rem 0.74rem;
+  }
+
+  .social-icon-glyph {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .social-icon-sep {
+    width: 1.75rem;
+  }
+
+  .social-icon-label {
+    font-size: 0.7rem;
+  }
+
+  .kp-menu-top-content {
+    gap: 0.6rem;
+  }
+
+  .kp-menu-item-link a {
+    padding-left: 1rem;
+    font-size: clamp(1.7rem, 2.75vw, 3.3rem);
+  }
+
+  .kp-menu-item > span {
+    font-size: 0.7rem;
+  }
+
+  .hud-lines-left {
+    width: min(23rem, 23vw);
+  }
+}
+
 /* ── Mobile home: clean editorial hero, no CRT/WebGL ────────────────
    `html.mobile-mode` is set by script.js on viewports ≤900px; the 3D scene
    and 2D terminal canvas are never created there. The hero follows the same
