@@ -1,14 +1,14 @@
 {
-  "name": "codegrid-3d-crt-display",
+  "name": "mounik-dev-portfolio",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "dev": "vite"
   },
   "keywords": [],
-  "author": "",
+  "author": "Mounik B M <mounik.bm@gmail.com>",
   "license": "ISC",
-  "description": "",
+  "description": "Portfolio of Mounik B M - software engineer",
   "dependencies": {
     "gsap": "^3.14.2",
     "lil-gui": "^0.21.0",
