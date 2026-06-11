@@ -18,19 +18,9 @@ let fontPromise;
 
 export function createTerminalScreen(projects) {
   const canvas = document.createElement("canvas");
+  let monitorMode = false;
 
-  const viewAspect = window.innerWidth / window.innerHeight;
-  const logicalAspect = LOGICAL_WIDTH / LOGICAL_HEIGHT;
-  let canvasW, canvasH;
-  if (viewAspect > logicalAspect) {
-    canvasH = LOGICAL_HEIGHT;
-    canvasW = Math.round(LOGICAL_HEIGHT * viewAspect);
-  } else {
-    canvasW = LOGICAL_WIDTH;
-    canvasH = Math.round(LOGICAL_WIDTH / viewAspect);
-  }
-  canvas.width = canvasW;
-  canvas.height = canvasH;
+  resizeTerminalCanvas(canvas, monitorMode);
 
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
@@ -54,6 +44,7 @@ export function createTerminalScreen(projects) {
     scroll: 0,
     startedAt: performance.now(),
     experienceStarted: false,
+    keyboardInset: 0,
   };
 
   const current = () => state.hover || state.selected;
@@ -84,10 +75,126 @@ export function createTerminalScreen(projects) {
     if (api.onStart) api.onStart();
   }
 
+  function scrollLogLines(step) {
+    const total = 2 + state.log.length;
+    if (total <= 5) return;
+    state.scroll = clamp(state.scroll + step, 0, total - 5);
+  }
+
+  // Shared by the physical keyboard (Enter) and the mobile hidden input.
+  function submitInput() {
+    const raw = state.input.trim();
+    write(`${promptStr(current())} ${raw}`);
+    if (raw) state.history.unshift(raw);
+    state.historyIndex = -1;
+    state.scroll = 0;
+
+    const parts = raw.toLowerCase().split(/\s+/);
+    const [command, ...args] = parts;
+    if (!raw) {}
+    else if (command === "start") {
+      startExperience();
+    } else if (command === "help") {
+      writeLines([
+        "help                list commands",
+        "about               print profile summary",
+        "experience          show experience log",
+        "projects            show featured project",
+        "github              open github profile",
+        "contact             show contact channels",
+        "skills              list skill groups",
+        "whoami              identify current user",
+        "boot                replay mlinux post",
+        "clear               clear terminal log",
+        "sudo hire mounik    open contact channel",
+      ]);
+    } else if (command === "projects" || command === "ls") {
+      writeLines([
+        "SPORTSNU",
+        "full-stack live sports and esports tracking platform",
+        "features: auth, fixture workers, cached dashboards",
+        `live: ${profile.sportsnu}`,
+        `repo: ${profile.sportsnuRepo}`,
+      ]);
+    } else if (command === "home") {
+      state.selected = null;
+      write("returning to home screen...", "dim");
+    } else if (command === "about") {
+      writeLines([
+        "Mounik B M",
+        "Computer Science graduate building real products,",
+        "AI-assisted systems, teaching programs, and cloud-ready",
+        "full-stack applications.",
+      ]);
+    } else if (command === "experience" || command === "log") {
+      writeLines([
+        "01 frontend components across production codebase",
+        "02 rag pipeline work at ai accessibility startup",
+        "03 instructed 200+ students in web development",
+        "04 course coordination: c++ / full stack / ml",
+        "05 two shopify + razorpay ecommerce deployments",
+        "06 ieee access research under review",
+      ]);
+    } else if (command === "github") {
+      openExternal(profile.github, "github");
+    } else if (command === "contact") {
+      writeLines([
+        `email:    ${profile.email}`,
+        `github:   ${profile.github}`,
+        `linkedin: ${profile.linkedin}`,
+      ]);
+    } else if (command === "skills") {
+      writeLines([
+        "frontend: react, ui systems, motion",
+        "backend: node, auth, workers, postgres",
+        "cloud: vercel, render, monitoring",
+        "research: optimization, ml surrogates",
+      ]);
+    } else if (command === "whoami") {
+      write("mounik: software engineer, product builder, cs graduate", "dim");
+    } else if (command === "boot") {
+      writeLines([
+        "MLINUX BIOS v2.1.4",
+        "COPYRIGHT (C) 2024 MLINUX SYSTEMS",
+        "CPU       MLINX 68000 @ 7.16 MHz       [OK]",
+        "MEM       512K RAM TEST                [OK]",
+        "VID       NTSC 525-LINE CRT            [OK]",
+        "SYSTEM READY",
+      ]);
+    } else if (command === "sudo" && args.join(" ") === "hire mounik") {
+      write("permission granted: opening contact channel...", "dim");
+      if (typeof window !== "undefined") window.location.href = `mailto:${profile.email}`;
+    } else if (command === "clear") {
+      state.log = [];
+    } else if (command) {
+      write(`${command}: command not found`);
+    }
+
+    state.input = "";
+  }
+
   const api = {
     canvas,
     projects: entries,
     onStart: null,
+    start() {
+      startExperience();
+    },
+    // Restore paths (back/forward navigation) land directly on the zoomed-out
+    // monitor — flag the experience as started without logging or re-running
+    // the start transition.
+    markStarted() {
+      state.experienceStarted = true;
+    },
+    setMonitorMode() {
+      monitorMode = true;
+      resizeTerminalCanvas(canvas, monitorMode);
+      ctx.imageSmoothingEnabled = false;
+    },
+    resize() {
+      resizeTerminalCanvas(canvas, monitorMode);
+      ctx.imageSmoothingEnabled = false;
+    },
     preloadProjects() {
       let index = 0;
       const schedule = (callback) => {
@@ -147,94 +254,7 @@ export function createTerminalScreen(projects) {
       }
       if (event.key === "Enter") {
         event.preventDefault();
-        const raw = state.input.trim();
-        write(`${promptStr(current())} ${raw}`);
-        if (raw) state.history.unshift(raw);
-        state.historyIndex = -1;
-        state.scroll = 0;
-
-        const parts = raw.toLowerCase().split(/\s+/);
-        const [command, ...args] = parts;
-        if (!raw) {}
-        else if (command === "start") {
-          startExperience();
-        } else if (command === "help") {
-          writeLines([
-            "help                list commands",
-            "about               print profile summary",
-            "experience          show experience log",
-            "projects            show featured project",
-            "github              open github profile",
-            "contact             show contact channels",
-            "skills              list skill groups",
-            "whoami              identify current user",
-            "boot                replay mlinux post",
-            "clear               clear terminal log",
-            "sudo hire mounik    open contact channel",
-          ]);
-        } else if (command === "projects" || command === "ls") {
-          writeLines([
-            "SPORTSNU",
-            "full-stack live sports and esports tracking platform",
-            "features: auth, fixture workers, cached dashboards",
-            `live: ${profile.sportsnu}`,
-            `repo: ${profile.sportsnuRepo}`,
-          ]);
-        } else if (command === "home") {
-          state.selected = null;
-          write("returning to home screen...", "dim");
-        } else if (command === "about") {
-          writeLines([
-            "Mounik B M",
-            "Computer Science graduate building real products,",
-            "AI-assisted systems, teaching programs, and cloud-ready",
-            "full-stack applications.",
-          ]);
-        } else if (command === "experience" || command === "log") {
-          writeLines([
-            "01 frontend components across production codebase",
-            "02 rag pipeline work at ai accessibility startup",
-            "03 instructed 200+ students in web development",
-            "04 course coordination: c++ / full stack / ml",
-            "05 two shopify + razorpay ecommerce deployments",
-            "06 ieee access research under review",
-          ]);
-        } else if (command === "github") {
-          openExternal(profile.github, "github");
-        } else if (command === "contact") {
-          writeLines([
-            `email:    ${profile.email}`,
-            `github:   ${profile.github}`,
-            `linkedin: ${profile.linkedin}`,
-          ]);
-        } else if (command === "skills") {
-          writeLines([
-            "frontend: react, ui systems, motion",
-            "backend: node, auth, workers, postgres",
-            "cloud: vercel, render, monitoring",
-            "research: optimization, ml surrogates",
-          ]);
-        } else if (command === "whoami") {
-          write("mounik: software engineer, product builder, cs graduate", "dim");
-        } else if (command === "boot") {
-          writeLines([
-            "MLINUX BIOS v2.1.4",
-            "COPYRIGHT (C) 2024 MLINUX SYSTEMS",
-            "CPU       MLINX 68000 @ 7.16 MHz       [OK]",
-            "MEM       512K RAM TEST                [OK]",
-            "VID       NTSC 525-LINE CRT            [OK]",
-            "SYSTEM READY",
-          ]);
-        } else if (command === "sudo" && args.join(" ") === "hire mounik") {
-          write("permission granted: opening contact channel...", "dim");
-          if (typeof window !== "undefined") window.location.href = `mailto:${profile.email}`;
-        } else if (command === "clear") {
-          state.log = [];
-        } else if (command) {
-          write(`${command}: command not found`);
-        }
-
-        state.input = "";
+        submitInput();
         return;
       }
       if (event.key.length === 1 && state.input.length < 44) {
@@ -248,10 +268,29 @@ export function createTerminalScreen(projects) {
         startExperience();
         return;
       }
-      const total = 2 + state.log.length;
-      if (total <= 5) return;
+      if (2 + state.log.length <= 5) return;
       event.preventDefault();
-      state.scroll = clamp(state.scroll + Math.sign(event.deltaY), 0, total - 5);
+      scrollLogLines(Math.sign(event.deltaY));
+    },
+    // ── Mobile (touch + on-screen keyboard) hooks ─────────────
+    setInput(value) {
+      state.input = (value || "").replace(/[\r\n]/g, "").slice(0, 44);
+    },
+    getInput() {
+      return state.input;
+    },
+    submit() {
+      submitInput();
+    },
+    scrollLines(step) {
+      const before = state.scroll;
+      scrollLogLines(step);
+      return state.scroll !== before;
+    },
+    // Height (in CSS px) the on-screen keyboard covers, so the portrait
+    // layout can lift the prompt above it.
+    setKeyboardInset(px) {
+      state.keyboardInset = Math.max(0, px || 0);
     },
     tick(elapsedSeconds) {
       drawScreen(ctx, state, current(), elapsedSeconds);
@@ -260,11 +299,39 @@ export function createTerminalScreen(projects) {
   return api;
 }
 
+function resizeTerminalCanvas(canvas, monitorMode = false) {
+  if (monitorMode) {
+    canvas.width = LOGICAL_WIDTH;
+    canvas.height = LOGICAL_HEIGHT;
+    return;
+  }
+
+  const viewAspect = window.innerWidth / window.innerHeight;
+  const logicalAspect = LOGICAL_WIDTH / LOGICAL_HEIGHT;
+
+  if (viewAspect > logicalAspect) {
+    canvas.height = LOGICAL_HEIGHT;
+    canvas.width = Math.round(LOGICAL_HEIGHT * viewAspect);
+  } else if (viewAspect > 1 / 1.35) {
+    // Squarish viewports (e.g. a half-snapped browser window) still draw the
+    // landscape layout, so keep the full logical width — otherwise the
+    // 1024px-wide content gets cropped on both sides. Extra height is
+    // letterboxed by the draw offset.
+    canvas.width = LOGICAL_WIDTH;
+    canvas.height = Math.round(LOGICAL_WIDTH / viewAspect);
+  } else {
+    const portraitWidth = window.innerWidth <= 600 ? 720 : 900;
+    canvas.width = portraitWidth;
+    canvas.height = Math.round(portraitWidth / viewAspect);
+  }
+}
+
 function drawScreen(ctx, state, active, elapsedSeconds) {
   const cw = ctx.canvas.width;
   const ch = ctx.canvas.height;
   const intro = clamp((performance.now() - state.startedAt) / INTRO_MS, 0, 1);
   const activePreview = active?.asset.preview || null;
+  const portraitLayout = ch / cw > 1.35;
   const header = active
     ? { lead: "Project loaded.", name: active.label, roles: ["Terminal Preview", "Phosphor Session"] }
     : { lead: "Hi there,", name: "I'm Mounik", roles: ["Software Engineer", "Digital Designer"] };
@@ -290,81 +357,92 @@ function drawScreen(ctx, state, active, elapsedSeconds) {
   ctx.fillRect(0, 0, cw, ch);
   ctx.restore();
 
-  // Center logical content
-  const ox = (cw - LOGICAL_WIDTH) / 2;
-  const oy = (ch - LOGICAL_HEIGHT) / 2;
-  ctx.save();
-  ctx.translate(ox, oy);
-
-  if (activePreview) {
-    ctx.drawImage(activePreview, 0, 0);
-
-    // Keep the preview feeling embedded in the CRT glass with subtle edge falloff.
-    ctx.save();
-    const vignette = ctx.createRadialGradient(
-      LOGICAL_WIDTH * 0.5,
-      LOGICAL_HEIGHT * 0.5,
-      LOGICAL_HEIGHT * 0.12,
-      LOGICAL_WIDTH * 0.5,
-      LOGICAL_HEIGHT * 0.5,
-      LOGICAL_HEIGHT * 0.78
-    );
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(0.72, "rgba(8,4,2,0.08)");
-    vignette.addColorStop(1, "rgba(6,3,1,0.3)");
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
-    ctx.restore();
+  if (portraitLayout) {
+    drawPortraitScreen(ctx, state, active, activePreview, header, intro, elapsedSeconds);
   } else {
-    // Header section
-    drawHeaderHalo(ctx);
-    drawText(ctx, reveal(header.lead, 18 + intro * 40), 80, 80, 38, TEXT_COLOR);
-    drawHighlight(ctx, reveal(header.name, 18 + intro * 56), 72, 136, 64);
-    header.roles.forEach((role, index) => {
-      drawText(ctx, `\u2022  ${reveal(role, 10 + intro * 40)}`, 80, 290 + index * 68, 34, TEXT_COLOR);
-    });
+    // Center logical content
+    const ox = (cw - LOGICAL_WIDTH) / 2;
+    const oy = (ch - LOGICAL_HEIGHT) / 2;
+    ctx.save();
+    ctx.translate(ox, oy);
 
-    // Divider
-    ctx.fillStyle = TEXT_COLOR;
-    ctx.globalAlpha = 0.2;
-    ctx.fillRect(60, 458, 880, 2);
-    ctx.globalAlpha = 1;
+    if (activePreview) {
+      ctx.drawImage(activePreview, 0, 0);
 
-    // Log area
-    const base = intro < 1
-      ? [
-          { text: reveal("Welcome to ED-Linux 1.0 LTS", 8 + intro * 26), style: "normal" },
-          { text: reveal('\u2192\u2192 Scroll or type "help" to get started', 4 + intro * 38), style: "normal" },
-        ]
-      : [
-          { text: "Welcome to ED-Linux 1.0 LTS", style: "normal" },
-          { text: '\u2192\u2192 Scroll or type "help" to get started', style: "normal" },
-        ];
-    const lines = [...base, ...state.log];
-    const visible = lines.slice(Math.max(lines.length - 5 - state.scroll, 0), Math.max(lines.length - state.scroll, 0));
-    visible.forEach((line, index) => {
-      const alpha = line.style === "dim" ? 0.5 : 1;
-      ctx.globalAlpha = alpha;
-      drawText(ctx, line.text, 66, 510 + index * 50, 26, TEXT_COLOR);
-      ctx.globalAlpha = 1;
-    });
+      // Keep the preview feeling embedded in the CRT glass with subtle edge falloff.
+      ctx.save();
+      const vignette = ctx.createRadialGradient(
+        LOGICAL_WIDTH * 0.5,
+        LOGICAL_HEIGHT * 0.5,
+        LOGICAL_HEIGHT * 0.12,
+        LOGICAL_WIDTH * 0.5,
+        LOGICAL_HEIGHT * 0.5,
+        LOGICAL_HEIGHT * 0.78
+      );
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(0.72, "rgba(8,4,2,0.08)");
+      vignette.addColorStop(1, "rgba(6,3,1,0.3)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+      ctx.restore();
+    } else {
+      // Header section
+      drawHeaderHalo(ctx);
+      drawText(ctx, reveal(header.lead, 18 + intro * 40), 80, 80, 38, TEXT_COLOR);
+      drawHighlight(ctx, reveal(header.name, 18 + intro * 56), 72, 136, 64);
+      header.roles.forEach((role, index) => {
+        drawText(ctx, `\u2022  ${reveal(role, 10 + intro * 40)}`, 80, 290 + index * 68, 34, TEXT_COLOR);
+      });
 
-    // Prompt + input
-    const pText = promptStr(active);
-    drawText(ctx, pText, 66, 790, 28, TEXT_COLOR);
-    const pWidth = measure(ctx, pText, 28);
-    const inputX = 66 + pWidth + 14;
-    drawText(ctx, state.input, inputX, 790, 28, TEXT_COLOR);
-
-    // Blinking caret
-    if (Math.sin(elapsedSeconds * 5.2) > 0) {
-      const caretX = inputX + measure(ctx, state.input, 28) + 2;
+      // Divider
       ctx.fillStyle = TEXT_COLOR;
-      ctx.fillRect(caretX, 790, 18, 30);
-    }
-  }
+      ctx.globalAlpha = 0.2;
+      ctx.fillRect(60, 458, 880, 2);
+      ctx.globalAlpha = 1;
 
-  ctx.restore(); // undo translate
+      // Log area
+      const base = intro < 1
+        ? [
+            { text: reveal("Welcome to ED-Linux 1.0 LTS", 8 + intro * 26), style: "normal" },
+            { text: reveal('\u2192\u2192 Scroll or type "help" to get started', 4 + intro * 38), style: "normal" },
+          ]
+        : [
+            { text: "Welcome to ED-Linux 1.0 LTS", style: "normal" },
+            { text: '\u2192\u2192 Scroll or type "help" to get started', style: "normal" },
+          ];
+      const lines = [...base, ...state.log];
+      const visible = lines.slice(Math.max(lines.length - 5 - state.scroll, 0), Math.max(lines.length - state.scroll, 0));
+      // Lines must fit inside the logical width: the monitor-mode canvas is
+      // exactly LOGICAL_WIDTH wide, so anything longer gets hard-clipped on
+      // the CRT (e.g. the welcome hint losing its last word).
+      const maxLineWidth = LOGICAL_WIDTH - 66 - 28;
+      visible.forEach((line, index) => {
+        const alpha = line.style === "dim" ? 0.5 : 1;
+        ctx.globalAlpha = alpha;
+        drawFittedText(ctx, line.text, 66, 510 + index * 50, 22, maxLineWidth, TEXT_COLOR);
+        ctx.globalAlpha = 1;
+      });
+
+      // Prompt + input
+      const pText = promptStr(active);
+      drawText(ctx, pText, 66, 790, 28, TEXT_COLOR);
+      const pWidth = measure(ctx, pText, 28);
+      const inputX = 66 + pWidth + 14;
+      drawFittedText(ctx, state.input, inputX, 790, 28, LOGICAL_WIDTH - inputX - 40, TEXT_COLOR);
+
+      // Blinking caret
+      if (Math.sin(elapsedSeconds * 5.2) > 0) {
+        const caretX = Math.min(
+          inputX + measure(ctx, state.input, 28) + 2,
+          LOGICAL_WIDTH - 84,
+        );
+        ctx.fillStyle = TEXT_COLOR;
+        ctx.fillRect(caretX, 790, 18, 30);
+      }
+    }
+
+    ctx.restore(); // undo translate
+  }
 
   // ── CRT post-processing (matching edh.dev reference pipeline) ──
   // Reference pipeline: render → bloom → lag → noise+scanlines
@@ -519,6 +597,82 @@ function drawScreen(ctx, state, active, elapsedSeconds) {
   ctx.restore();
 }
 
+function drawPortraitScreen(ctx, state, active, activePreview, header, intro, elapsedSeconds) {
+  const cw = ctx.canvas.width;
+  const ch = ctx.canvas.height;
+  const side = Math.round(cw * 0.075);
+  const contentWidth = cw - side * 2;
+
+  // Lift the prompt above the on-screen keyboard (inset is in CSS px,
+  // converted into this canvas's logical pixels).
+  const keyboardInsetLogical = state.keyboardInset
+    ? Math.min(ch * 0.42, Math.round(state.keyboardInset * (ch / Math.max(window.innerHeight, 1))))
+    : 0;
+  const promptY = ch - Math.max(150, ch * 0.1) - keyboardInsetLogical;
+
+  if (activePreview) {
+    blit(ctx, activePreview, { x: 0, y: 0, width: cw, height: ch }, true);
+    ctx.fillStyle = "rgba(7, 5, 3, 0.28)";
+    ctx.fillRect(0, 0, cw, ch);
+  } else {
+    const halo = ctx.createRadialGradient(cw * 0.3, ch * 0.18, 10, cw * 0.3, ch * 0.18, cw * 0.72);
+    halo.addColorStop(0, "rgba(255,207,92,0.16)");
+    halo.addColorStop(1, "rgba(255,207,92,0)");
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, cw, ch * 0.48);
+
+    drawText(ctx, reveal(header.lead, 18 + intro * 40), side, ch * 0.105, 30, TEXT_COLOR);
+    drawHighlight(ctx, reveal(header.name, 18 + intro * 56), side, ch * 0.16, 48);
+    header.roles.forEach((role, index) => {
+      drawText(ctx, `\u2022  ${reveal(role, 10 + intro * 40)}`, side, ch * 0.27 + index * 58, 27, TEXT_COLOR);
+    });
+
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(side, ch * 0.405, contentWidth, 2);
+    ctx.globalAlpha = 1;
+
+    const base = intro < 1
+      ? [
+          { text: reveal("Welcome to ED-Linux 1.0 LTS", 8 + intro * 26), style: "normal" },
+          { text: reveal("\u2192\u2192 Swipe up to enter", 4 + intro * 30), style: "normal" },
+          { text: reveal('Tap to type \u00b7 try "help"', intro * 32), style: "dim" },
+        ]
+      : [
+          { text: "Welcome to ED-Linux 1.0 LTS", style: "normal" },
+          { text: "\u2192\u2192 Swipe up to enter", style: "normal" },
+          { text: 'Tap to type \u00b7 try "help"', style: "dim" },
+        ];
+    const lines = [...base, ...state.log];
+    // Only draw as many lines as fit between the divider and the (possibly
+    // keyboard-lifted) prompt, newest last.
+    const logTop = ch * 0.47;
+    const maxVisible = Math.max(1, Math.min(7, Math.floor((promptY - 40 - logTop) / 50)));
+    const visible = lines.slice(
+      Math.max(lines.length - maxVisible - state.scroll, 0),
+      Math.max(lines.length - state.scroll, 0),
+    );
+    visible.forEach((line, index) => {
+      ctx.globalAlpha = line.style === "dim" ? 0.5 : 1;
+      drawFittedText(ctx, line.text, side, logTop + index * 50, 23, contentWidth, TEXT_COLOR);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  const promptSize = 24;
+  const pText = promptStr(active);
+  drawText(ctx, pText, side, promptY, promptSize, TEXT_COLOR);
+  const pWidth = measure(ctx, pText, promptSize);
+  const inputX = side + pWidth + 12;
+  drawFittedText(ctx, state.input, inputX, promptY, promptSize, contentWidth - pWidth - 12, TEXT_COLOR);
+
+  if (Math.sin(elapsedSeconds * 5.2) > 0) {
+    const caretX = Math.min(inputX + measure(ctx, state.input, promptSize) + 2, cw - side - 14);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.fillRect(caretX, promptY, 14, 27);
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────
 
 function makeAsset(src) {
@@ -670,6 +824,15 @@ function drawText(ctx, text, x, y, size, color) {
   }
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+}
+
+function drawFittedText(ctx, text, x, y, size, maxWidth, color) {
+  if (!text || maxWidth <= 0) return;
+  let fitted = text;
+  while (fitted.length > 1 && measure(ctx, fitted, size) > maxWidth) {
+    fitted = `${fitted.slice(0, -2)}\u2026`;
+  }
+  drawText(ctx, fitted, x, y, size, color);
 }
 
 function drawHighlight(ctx, text, x, y, size) {

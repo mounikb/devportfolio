@@ -2460,3 +2460,211 @@ html.section-deck-enabled .contact-minimal::after {
     display: contents;
   }
 }
+
+/* Responsive content flow */
+@media (max-width: 1000px) {
+  :root {
+    --hud-safe-left: clamp(1rem, 4vw, 2rem);
+    --hud-safe-right: clamp(1rem, 4vw, 2rem);
+    --hud-safe-top: 4.75rem;
+    --hud-safe-bottom: 4.75rem;
+  }
+
+  .page-skills {
+    position: relative;
+    z-index: 4;
+    padding-bottom: 4.5rem;
+  }
+
+  .intro-copy,
+  .stats,
+  .minimal-section,
+  .stats.minimal-section,
+  .portfolio-section,
+  .portfolio-section.minimal-section {
+    width: 100%;
+    min-height: auto;
+    padding:
+      4.75rem
+      var(--hud-safe-right)
+      1.25rem
+      var(--hud-safe-left) !important;
+    border-top: 0;
+    align-items: stretch;
+  }
+
+  .intro-copy,
+  .portfolio-section.minimal-section:last-child {
+    padding-bottom: 2.5rem !important;
+  }
+
+  .intro-copy-container,
+  .stats.minimal-section > .experience-carousel,
+  .project-minimal,
+  .contact-minimal {
+    width: 100% !important;
+    height: auto;
+    min-height: 0 !important;
+    max-height: none;
+    margin: 0 auto !important;
+    padding: clamp(1rem, 3.5vw, 1.45rem) !important;
+    overflow: visible;
+    border-radius: 4px;
+    backdrop-filter: none;
+  }
+
+  .intro-copy h3 {
+    font-size: clamp(1.25rem, 4.4vw, 2rem);
+    line-height: 1.16;
+    letter-spacing: 0;
+  }
+
+  .minimal-header,
+  .experience-carousel-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0 0 1rem !important;
+  }
+
+  .minimal-header h2,
+  .experience-carousel-header h2,
+  .project-minimal .minimal-header h2,
+  .contact-minimal .minimal-header h2 {
+    max-width: 16ch;
+    font-size: clamp(1.75rem, 6vw, 2.8rem);
+    line-height: 0.98;
+    letter-spacing: 0;
+  }
+
+  .project-minimal .minimal-header p:not(.section-kicker) {
+    max-width: none;
+    margin-top: 0.65rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .experience-carousel-controls {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .experience-nav-button {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .experience-counter {
+    min-width: 4.4rem;
+    font-size: 0.56rem;
+  }
+
+  .stats.minimal-section .experience-track .stat-item {
+    min-height: 12rem;
+    padding: 1rem;
+  }
+
+  .experience-track .minimal-row h3 {
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    line-height: 1.16;
+  }
+
+  .project-summary {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .project-summary > p {
+    font-size: 0.98rem;
+    line-height: 1.58;
+  }
+
+  .project-actions {
+    align-self: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .project-link {
+    min-height: 2.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .contact-links a {
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .contact-links strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --hud-safe-left: 0.75rem;
+    --hud-safe-right: 0.75rem;
+  }
+
+  .intro-copy,
+  .stats,
+  .minimal-section,
+  .stats.minimal-section,
+  .portfolio-section,
+  .portfolio-section.minimal-section {
+    padding-top: 4rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .intro-copy-container,
+  .stats.minimal-section > .experience-carousel,
+  .project-minimal,
+  .contact-minimal {
+    padding: 1rem !important;
+  }
+
+  .intro-copy h3 {
+    font-size: clamp(1.08rem, 5.2vw, 1.42rem);
+    line-height: 1.2;
+  }
+
+  .minimal-header,
+  .experience-carousel-header {
+    grid-template-columns: 1fr;
+  }
+
+  .experience-carousel-controls {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .stats.minimal-section .experience-track .stat-item {
+    min-height: 13rem;
+  }
+
+  .project-summary {
+    padding-top: 0.85rem;
+  }
+
+  .project-details div {
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .project-link {
+    flex: 1 1 8rem;
+  }
+
+  .contact-links a {
+    grid-template-columns: 1fr;
+    min-height: 3.4rem;
+    padding: 0.85rem 0;
+  }
+}

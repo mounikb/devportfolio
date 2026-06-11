@@ -69,6 +69,92 @@ document.addEventListener("DOMContentLoaded", () => {
   let initialRevealPlaying = false;
   let scenePrewarmed = false;
 
+  // ── Mobile (≤900px): clean static home — the CRT/WebGL scene and the
+  // 2D terminal canvas are never created. The page scrolls normally from a
+  // terminal-styled hero card straight into the content sections.
+  if (compactViewport) {
+    document.documentElement.classList.add("mobile-mode");
+    initMobileHome();
+    return;
+  }
+
+  function initMobileHome() {
+    setKpMenuVisibility(true);
+    setStatusPanelsVisibility(true);
+    startStatusClock();
+    startMemTicker();
+    initMobileNav();
+    initScrollSpy();
+    initMobileHeroIntro();
+  }
+
+  // Same bottom command rail as desktop, but links plainly smooth-scroll —
+  // there is no CRT to collapse and no terminal to drive.
+  function initMobileNav() {
+    if (!kpMenuContainer) return;
+    kpMenuContainer.classList.add("is-open");
+
+    const terminalLink = kpMenuContainer.querySelector('a[data-terminal-nav="true"]');
+    if (terminalLink) terminalLink.textContent = "Home";
+
+    kpMenuContainer.querySelectorAll(".kp-menu-item-link a").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        const href = link.getAttribute("href");
+
+        if (link.dataset.terminalNav === "true") {
+          event.preventDefault();
+          setActiveKpMenuItem(link.closest(".kp-menu-item"));
+          smoothScrollToElement(hero);
+          return;
+        }
+
+        if (href && href.startsWith("#") && href.length > 1) {
+          event.preventDefault();
+          const target = document.querySelector(href);
+          if (target) smoothScrollToElement(target);
+        }
+      });
+    });
+
+    document.querySelectorAll(".mobile-hero-actions a").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        const target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        event.preventDefault();
+        smoothScrollToElement(target);
+      });
+    });
+  }
+
+  // Types "whoami" at the hero prompt, then reveals the identity block —
+  // a lightweight echo of the CRT terminal's intro.
+  function initMobileHeroIntro() {
+    const commandEl = document.querySelector("[data-mobile-typed]");
+    const output = document.querySelector(".mobile-hero-output");
+    if (!commandEl || !output) return;
+
+    const command = commandEl.dataset.mobileTyped || commandEl.textContent || "whoami";
+    if (prefersReducedMotion) {
+      commandEl.textContent = command;
+      output.classList.add("is-visible");
+      return;
+    }
+
+    commandEl.textContent = "";
+    let typed = 0;
+    const typeNext = () => {
+      typed += 1;
+      commandEl.textContent = command.slice(0, typed);
+      if (typed < command.length) {
+        window.setTimeout(typeNext, 95 + Math.random() * 80);
+      } else {
+        window.setTimeout(() => output.classList.add("is-visible"), 300);
+      }
+    };
+    // Let the boot loader clear before the prompt starts typing.
+    window.setTimeout(typeNext, 1500);
+  }
+
   // ── Terminal (2D fullscreen overlay) ──────────────────────────
   const projectItems = [];
   const terminalScreen = createTerminalScreen(projectEntries);
@@ -86,6 +172,147 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("keydown", terminalScreen.handleKeydown);
   terminalOverlay.addEventListener("wheel", terminalScreen.handleWheel, { passive: false });
+
+  // ── Touch devices: tap focuses a hidden input (summons the on-screen
+  // keyboard), drag scrolls the terminal log, swipe up enters the experience.
+  const touchDevice =
+    window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+  const mobileInput = touchDevice ? createMobileTerminalInput() : null;
+  if (touchDevice) initTerminalTouchControls();
+
+  function createMobileTerminalInput() {
+    const form = document.createElement("form");
+    form.setAttribute("aria-hidden", "true");
+    form.style.cssText =
+      "position:fixed;top:4.5rem;left:0.75rem;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.autocapitalize = "none";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.enterKeyHint = "send";
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("aria-label", "Terminal command input");
+    form.appendChild(input);
+    document.body.appendChild(form);
+
+    input.addEventListener("input", () => {
+      terminalScreen.setInput(input.value);
+    });
+    const submitCommand = (event) => {
+      event.preventDefault();
+      terminalScreen.submit();
+      input.value = "";
+    };
+    form.addEventListener("submit", submitCommand);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") submitCommand(event);
+    });
+
+    // Keyboards overlay the page (iOS, and Android since Chrome 108), so track
+    // the visual viewport to keep the terminal prompt visible above them.
+    if (window.visualViewport) {
+      const syncKeyboardInset = () => {
+        terminalScreen.setKeyboardInset(
+          Math.max(0, window.innerHeight - window.visualViewport.height),
+        );
+      };
+      window.visualViewport.addEventListener("resize", syncKeyboardInset);
+      input.addEventListener("blur", () => terminalScreen.setKeyboardInset(0));
+    }
+
+    return input;
+  }
+
+  function focusMobileTerminalInput() {
+    if (!mobileInput) return;
+    mobileInput.value = terminalScreen.getInput();
+    mobileInput.focus({ preventScroll: true });
+  }
+
+  function initTerminalTouchControls() {
+    const TAP_SLOP = 12;
+    const SWIPE_ENTER_DISTANCE = 56;
+    const SCROLL_STEP_PX = 48;
+    let gestureStartX = 0;
+    let gestureStartY = 0;
+    let lastGestureY = 0;
+    let gestureMoved = false;
+    let gestureScrolledLog = false;
+    let scrollRemainder = 0;
+
+    // Stop the browser from hijacking drags for pull-to-refresh etc.
+    terminalOverlay.style.touchAction = "none";
+
+    terminalOverlay.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse") return;
+      gestureStartX = event.clientX;
+      gestureStartY = event.clientY;
+      lastGestureY = event.clientY;
+      gestureMoved = false;
+      gestureScrolledLog = false;
+      scrollRemainder = 0;
+    });
+
+    terminalOverlay.addEventListener("pointermove", (event) => {
+      if (event.pointerType === "mouse" || event.buttons === 0) return;
+      if (
+        Math.abs(event.clientX - gestureStartX) > TAP_SLOP ||
+        Math.abs(event.clientY - gestureStartY) > TAP_SLOP
+      ) {
+        gestureMoved = true;
+      }
+
+      // Drag scrolls the log: finger down reveals older lines, up newer ones.
+      scrollRemainder += lastGestureY - event.clientY;
+      lastGestureY = event.clientY;
+      while (Math.abs(scrollRemainder) >= SCROLL_STEP_PX) {
+        const step = Math.sign(scrollRemainder);
+        if (terminalScreen.scrollLines(-step)) gestureScrolledLog = true;
+        scrollRemainder -= step * SCROLL_STEP_PX;
+      }
+    });
+
+    terminalOverlay.addEventListener("pointerup", (event) => {
+      if (event.pointerType === "mouse") return;
+      if (!gestureMoved) {
+        focusMobileTerminalInput();
+        return;
+      }
+      // A decisive upward swipe enters the experience (the touch counterpart
+      // of scrolling down on desktop) — unless the drag was scrolling the log.
+      if (
+        !gestureScrolledLog &&
+        event.clientY - gestureStartY < -SWIPE_ENTER_DISTANCE
+      ) {
+        terminalScreen.start();
+      }
+    });
+
+    // After the zoom-out, the overlay is gone; a still tap on the 3D monitor
+    // re-opens the keyboard so commands stay usable on the CRT.
+    let heroTapX = 0;
+    let heroTapY = 0;
+    let heroTapActive = false;
+    hero.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse") return;
+      heroTapX = event.clientX;
+      heroTapY = event.clientY;
+      heroTapActive = true;
+    });
+    hero.addEventListener("pointerup", (event) => {
+      if (event.pointerType === "mouse" || !heroTapActive) return;
+      heroTapActive = false;
+      if (!started || heroPhase !== "hero" || transitionPlaying) return;
+      if (
+        Math.abs(event.clientX - heroTapX) > TAP_SLOP ||
+        Math.abs(event.clientY - heroTapY) > TAP_SLOP
+      ) {
+        return;
+      }
+      focusMobileTerminalInput();
+    });
+  }
 
   // ── Three.js scene (hidden initially) ─────────────────────────
   const scene = new THREE.Scene();
@@ -300,6 +527,25 @@ document.addEventListener("DOMContentLoaded", () => {
     fragmentShader,
   });
 
+  let lastScreenTextureWidth = terminalScreen.canvas.width;
+  let lastScreenTextureHeight = terminalScreen.canvas.height;
+
+  function refreshScreenTextureSize() {
+    const { width, height } = terminalScreen.canvas;
+    // three.js allocates immutable GPU storage for the canvas texture at its
+    // first upload. If the canvas is later resized (overlay size → monitor
+    // mode, or window resizes before start), `needsUpdate` alone only writes
+    // the new, smaller frame into part of the old storage — leaving the rest
+    // of the CRT frozen on a stale frame. Dispose to force reallocation.
+    if (width !== lastScreenTextureWidth || height !== lastScreenTextureHeight) {
+      lastScreenTextureWidth = width;
+      lastScreenTextureHeight = height;
+      screenTexture.dispose();
+    }
+    displayMaterial.uniforms.imageAspect.value = width / height;
+    displayMaterial.uniforms.iResolution.value.set(width, height);
+  }
+
   const displayPlane = new THREE.Mesh(
     createScreenGeometry(1, 1, 0.03),
     displayMaterial,
@@ -344,6 +590,7 @@ document.addEventListener("DOMContentLoaded", () => {
   terminalScreen.onStart = () => {
     if (started) return;
     started = true;
+    mobileInput?.blur();
     initialRevealPlaying = true;
     suspendScreenUpdates = true;
     prewarmScene();
@@ -362,6 +609,10 @@ document.addEventListener("DOMContentLoaded", () => {
       onComplete() {
         terminalOverlay.style.pointerEvents = "none";
         terminalOverlay.style.willChange = "";
+        terminalScreen.setMonitorMode();
+        terminalScreen.tick(timer.getElapsed());
+        refreshScreenTextureSize();
+        screenTexture.needsUpdate = true;
       },
     });
     tl.call(() => {
@@ -664,7 +915,7 @@ document.addEventListener("DOMContentLoaded", () => {
     camera.fov = THREE.MathUtils.lerp(42, 24, zoom.current);
     camera.position.x = 0;
     camera.position.y = THREE.MathUtils.lerp(0.03, 0.055, zoom.current);
-    camera.position.z = THREE.MathUtils.lerp(0.35, 1.98, zoom.current);
+    camera.position.z = THREE.MathUtils.lerp(0.35, computeFittedCameraZ(), zoom.current);
     cameraLookTarget.set(
       0,
       THREE.MathUtils.lerp(0.03, 0.008, zoom.current),
@@ -691,6 +942,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   requestAnimationFrame(animate);
+
+  // Pull the camera back until the monitor's footprint (bezel included, at its
+  // zoomed scale) fits whichever viewport axis is tighter, with a small
+  // margin. On wide screens this settles at the designed 1.98; on portrait
+  // phones it backs off just enough that the CRT is never cropped.
+  const MONITOR_HALF_WIDTH = 0.31;
+  const MONITOR_HALF_HEIGHT = 0.27;
+  const MONITOR_FIT_MARGIN = 1.16;
+  function computeFittedCameraZ() {
+    const halfVTan = Math.tan(THREE.MathUtils.degToRad(12)); // final 24° fov
+    const halfHTan = halfVTan * camera.aspect;
+    const fitWidth = (MONITOR_HALF_WIDTH * MONITOR_FIT_MARGIN) / halfHTan;
+    const fitHeight = (MONITOR_HALF_HEIGHT * MONITOR_FIT_MARGIN) / halfVTan;
+    return Math.max(1.98, fitWidth, fitHeight);
+  }
 
   window.addEventListener("mousemove", (event) => {
     if (pointerFrame) return;
@@ -719,6 +985,10 @@ document.addEventListener("DOMContentLoaded", () => {
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(devicePixelRatio, lowPowerDevice ? 1 : 1.25));
       renderer.setSize(innerWidth, innerHeight);
+      terminalScreen.resize();
+      terminalScreen.tick(timer.getElapsed());
+      refreshScreenTextureSize();
+      screenTexture.needsUpdate = true;
       if (interactiveGrid && !lowPowerDevice) resetInteractiveGrid(interactiveGrid);
     });
   }, { passive: true });
@@ -799,6 +1069,14 @@ document.addEventListener("DOMContentLoaded", () => {
     setStatusPanelsVisibility(true);
     setActiveProject(null);
     terminalScreen.setIdle();
+    // The monitor texture must use the fixed logical canvas, not the
+    // window-sized overlay canvas — otherwise the screen content renders
+    // cropped and misaligned on the CRT.
+    terminalScreen.setMonitorMode();
+    terminalScreen.markStarted();
+    refreshScreenTextureSize();
+    terminalScreen.tick(timer.getElapsed());
+    screenTexture.needsUpdate = true;
     scheduleAmbientFlicker();
   }
 

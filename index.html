@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>3D CRT Display | Codegrid</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/experience.css" />
@@ -18,7 +18,7 @@
           <span data-boot-status>Preparing display...</span>
           <span data-boot-progress>00%</span>
         </div>
-        <p class="boot-loader-warning type-mono">Use a laptop for the best experience.</p>
+        <p class="boot-loader-warning type-mono">Tip: the full 3D CRT experience runs on desktop.</p>
       </div>
     </div>
 
@@ -166,7 +166,34 @@
       <time class="status-panel-accent status-panel-clock" datetime="">--:--:--</time>
     </div>
 
-    <section class="hero"></section>
+    <section class="hero">
+      <div class="mobile-hero">
+        <div class="mobile-hero-deck">
+          <p class="mobile-hero-kicker"><span>[ CRT 005 ]</span> __ Terminal Session</p>
+          <p class="mobile-hero-prompt"><span class="mobile-prompt">user:~$</span> <span data-mobile-typed="whoami">whoami</span><span class="mobile-caret" aria-hidden="true"></span></p>
+          <div class="mobile-hero-output">
+            <p class="mobile-hero-lead">Hi there, I'm</p>
+            <h1 class="mobile-hero-name">Mounik<span>.</span></h1>
+            <p class="mobile-hero-roles">Software Engineer<i aria-hidden="true"></i>Digital Designer</p>
+            <p class="mobile-hero-bio">
+              Computer Science graduate building and shipping real products
+              &mdash; AI pipelines, live platforms, and production-grade
+              full-stack systems.
+            </p>
+            <div class="mobile-hero-actions">
+              <a href="#projects">View Work</a>
+              <a href="#contact" class="mobile-hero-cta-secondary">Contact</a>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-hero-meta" aria-hidden="true">
+          <span>Node <strong>Active</strong></span>
+          <span>Status <strong>Available</strong></span>
+          <span>Uplink <strong>Stable</strong></span>
+        </div>
+        <p class="mobile-hero-scroll" aria-hidden="true">&#9660; scroll to explore</p>
+      </div>
+    </section>
 
     <section class="page-skills">
       <div class="section-deck-stage">
