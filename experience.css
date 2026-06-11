@@ -2621,6 +2621,16 @@ html.section-deck-enabled .contact-minimal::after {
     max-height: 42rem;
   }
 
+  /* Safety valve: these two cards' content height varies with wrapping —
+     grow past the shared footprint rather than clipping. They sit in a
+     flex-centred stage, so extra height stays vertically centred. */
+  .project-minimal,
+  .contact-minimal {
+    height: auto;
+    min-height: clamp(30rem, 64vh, 42rem) !important;
+    max-height: none;
+  }
+
   .intro-copy-container {
     max-width: 1040px;
   }
@@ -2716,30 +2726,35 @@ html.section-deck-enabled .contact-minimal::after {
 
   .project-minimal .minimal-header h2,
   .contact-minimal .minimal-header h2 {
-    font-size: clamp(2.45rem, 3.7vw, 3.95rem);
+    font-size: clamp(2.45rem, 3.7vw, 3.5rem);
   }
 
   .project-minimal .minimal-header p:not(.section-kicker) {
     max-width: 52rem;
-    font-size: clamp(1.15rem, 1.25vw, 1.35rem);
+    font-size: clamp(1.1rem, 1.25vw, 1.22rem);
   }
 
   .project-summary > p {
-    font-size: clamp(1.25rem, 1.3vw, 1.42rem);
+    font-size: clamp(1.2rem, 1.3vw, 1.32rem);
   }
 
   .project-details dt {
-    font-size: 0.8rem;
+    font-size: 0.74rem;
   }
 
   .project-details dd {
-    font-size: 1.22rem;
+    font-size: 1.05rem;
+  }
+
+  .project-details div {
+    padding: 0 0 0.6rem;
+    margin-bottom: 0.6rem;
   }
 
   .project-link {
-    min-height: 3.1rem;
-    padding: 0.9rem 1.25rem;
-    font-size: 0.82rem;
+    min-height: 2.7rem;
+    padding: 0.78rem 1.1rem;
+    font-size: 0.76rem;
   }
 
   .contact-links a {
